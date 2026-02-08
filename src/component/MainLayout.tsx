@@ -217,7 +217,7 @@ export default function MainLayout() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-full">
             <Outlet />
           </div>
         </main>

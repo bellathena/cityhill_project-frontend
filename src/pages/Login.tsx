@@ -1,11 +1,9 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom';
 import { Building2 } from "lucide-react";
 const login = () => {
  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
