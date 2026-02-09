@@ -85,12 +85,23 @@ export const RoomCalendar: React.FC = () => {
   const [selectedRoomId, setSelectedRoomId] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<number>(1);
   const [selectedBookingData, setSelectedBookingData] = useState<any>(null);
+  
+  // Customer search/select states
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
+  const filteredCustomers = customers.filter((c) =>
+    c.fullName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+    c.phone.includes(customerSearchTerm)
+  );
 
   // Form data
   const [bookingForm, setBookingForm] = useState({
     startDate: "",
     endDate: "",
-    customerName: "",
+    customerId: 0,
     customerPhone: "",
     citizenId: "",
     address: "",
@@ -211,10 +222,14 @@ export const RoomCalendar: React.FC = () => {
 
     setSelectedRoomId(roomId);
     setSelectedDate(day);
+    setCustomerSearchTerm("");
+    setShowCustomerDropdown(false);
+    setIsCreatingNewCustomer(false);
+    setSelectedCustomer(null);
     setBookingForm({
       startDate: `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
       endDate: "",
-      customerName: "",
+      customerId: 0,
       customerPhone: "",
       citizenId: "",
       address: "",
@@ -229,14 +244,49 @@ export const RoomCalendar: React.FC = () => {
     setIsBookingDialogOpen(true);
   };
 
+  // Handle select existing customer
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setBookingForm({
+      ...bookingForm,
+      customerId: customer.id,
+      customerPhone: customer.phone,
+      citizenId: customer.citizenId,
+      address: customer.address,
+      carLicense: customer.carLicense,
+    });
+    setCustomerSearchTerm("");
+    setShowCustomerDropdown(false);
+  };
+
+  // Handle create new customer mode
+  const handleCreateNewCustomer = () => {
+    setIsCreatingNewCustomer(true);
+    setSelectedCustomer(null);
+    setBookingForm({
+      ...bookingForm,
+      customerId: 0,
+      customerPhone: "",
+      citizenId: "",
+      address: "",
+      carLicense: "",
+    });
+    setShowCustomerDropdown(false);
+  };
+
   // Handle booking submission
   const handleBooking = async () => {
     const room = rooms.find((r) => r.id === selectedRoomId);
     if (!room) return;
 
     // Validation
-    if (!bookingForm.customerName.trim()) {
-      addToast("กรุณาระบุชื่อลูกค้า", "error");
+    if (!selectedCustomer && !isCreatingNewCustomer) {
+      addToast("กรุณาเลือกหรือสร้างลูกค้า", "error");
+      return;
+    }
+
+    if (isCreatingNewCustomer && !bookingForm.customerPhone.trim()) {
+      addToast("กรุณาระบุเบอร์โทรศัพท์", "error");
       return;
     }
 
@@ -260,20 +310,16 @@ export const RoomCalendar: React.FC = () => {
     }
 
     try {
-      // Find customer by name or phone
-      let customer = customers.find(
-        (c) =>
-          c.fullName === bookingForm.customerName ||
-          (bookingForm.customerPhone && c.phone === bookingForm.customerPhone),
-      );
-      let customerId = customer?.id;
+      let customerId: number | undefined;
 
-      console.log("Found existing customer:", customer);
-
-      // If new customer, create one
-      if (!customerId && bookingForm.customerName) {
+      // If selected existing customer, use that
+      if (selectedCustomer) {
+        customerId = selectedCustomer.id;
+        console.log("Using existing customer:", selectedCustomer);
+      } else if (isCreatingNewCustomer) {
+        // Create new customer
         const newCustomer = {
-          fullName: bookingForm.customerName,
+          fullName: bookingForm.customerPhone || `Customer_${new Date().getTime()}`,
           citizenId: bookingForm.citizenId || "",
           address: bookingForm.address || "",
           phone: bookingForm.customerPhone || "",
@@ -327,6 +373,7 @@ export const RoomCalendar: React.FC = () => {
           totalAmount: Number(bookingForm.totalAmount) || totalAmount,
           bookingStatus: "PENDING",
           paymentStatus: "PENDING",
+          currentStatus: "OCCUPIED_D"
         };
 
         console.log("Sending daily booking payload:", payload);
@@ -345,7 +392,8 @@ export const RoomCalendar: React.FC = () => {
           depositAmount: Number(bookingForm.depositAmount) || 0,
           advancePayment: Number(bookingForm.advancePayment) || 0,
           monthlyRentRate: Number(bookingForm.monthlyRentRate) || monthlyRate,
-          contractStatus: "ACTIVE",
+          contractStatus: "PENDING",
+          currentStatus: "OCCUPIED_M"
         };
 
         console.log("Sending monthly contract payload:", payload);
@@ -616,23 +664,82 @@ export const RoomCalendar: React.FC = () => {
                 </div>
               )}
 
-              <div>
-                <label className="text-sm font-medium">ชื่อลูกค้า *</label>
-                <Input
-                  value={bookingForm.customerName}
-                  onChange={(e) =>
-                    setBookingForm({
-                      ...bookingForm,
-                      customerName: e.target.value,
-                    })
-                  }
-                  placeholder="กรอกชื่อ-นามสกุล"
-                  required
-                />
-              </div>
+              {/* Customer Selection */}
+              {!isCreatingNewCustomer ? (
+                <div>
+                  <label className="text-sm font-medium">เลือกลูกค้า *</label>
+                  <div className="relative">
+                    <Input
+                      value={customerSearchTerm}
+                      onChange={(e) => {
+                        setCustomerSearchTerm(e.target.value);
+                        setShowCustomerDropdown(true);
+                      }}
+                      placeholder="ค้นหาชื่อหรือเบอร์โทร..."
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      required
+                    />
+                    {selectedCustomer && (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✓ เลือก: {selectedCustomer.fullName}
+                      </div>
+                    )}
+
+                    {/* Dropdown list */}
+                    {showCustomerDropdown && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-t-0 rounded-b shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {filteredCustomers.length > 0 ? (
+                          <>
+                            {filteredCustomers.map((customer) => (
+                              <div
+                                key={customer.id}
+                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b text-sm"
+                                onClick={() => handleSelectCustomer(customer)}
+                              >
+                                <div className="font-medium">{customer.fullName}</div>
+                                <div className="text-xs text-gray-500">{customer.phone}</div>
+                              </div>
+                            ))}
+                            <div
+                              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 cursor-pointer font-medium text-sm text-blue-600"
+                              onClick={handleCreateNewCustomer}
+                            >
+                              + สร้างลูกค้าใหม่
+                            </div>
+                          </>
+                        ) : (
+                          <div
+                            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 cursor-pointer font-medium text-sm text-blue-600"
+                            onClick={handleCreateNewCustomer}
+                          >
+                            + สร้างลูกค้าใหม่
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Create new customer form */
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-sm font-medium">สร้างลูกค้าใหม่</label>
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                      onClick={() => {
+                        setIsCreatingNewCustomer(false);
+                        setCustomerSearchTerm("");
+                        setShowCustomerDropdown(false);
+                      }}
+                    >
+                      ← กลับไปเลือก
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
-                <label className="text-sm font-medium">เบอร์โทรศัพท์</label>
+                <label className="text-sm font-medium">เบอร์โทรศัพท์ *</label>
                 <Input
                   value={bookingForm.customerPhone}
                   onChange={(e) =>
@@ -642,6 +749,7 @@ export const RoomCalendar: React.FC = () => {
                     })
                   }
                   placeholder="กรอกเบอร์โทรศัพท์"
+                  required={isCreatingNewCustomer}
                 />
               </div>
 
@@ -717,7 +825,7 @@ export const RoomCalendar: React.FC = () => {
                       placeholder="0"
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="text-sm font-medium">ยอดรวม</label>
                     <Input
                       type="number"
@@ -730,7 +838,7 @@ export const RoomCalendar: React.FC = () => {
                       }
                       placeholder="0"
                     />
-                  </div>
+                  </div> */}
                 </>
               ) : (
                 <>
@@ -779,7 +887,7 @@ export const RoomCalendar: React.FC = () => {
                       placeholder="0"
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="text-sm font-medium">
                       ค่าเช่ารายเดือน
                     </label>
@@ -794,7 +902,7 @@ export const RoomCalendar: React.FC = () => {
                       }
                       placeholder="0"
                     />
-                  </div>
+                  </div> */}
                 </>
               )}
 
