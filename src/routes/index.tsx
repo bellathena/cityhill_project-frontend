@@ -4,6 +4,8 @@ import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import Users from '../pages/UserManagement'
 import MainLayout from '../component/MainLayout'
+import { RoomTypes } from '../pages/RoomTypes'
+import { RoomManagement } from '../pages/RoomManagement'
 
 export const router = createBrowserRouter([
   {
@@ -26,7 +28,14 @@ export const router = createBrowserRouter([
         path: 'users',
         element: <Users />,
       },
-      //for Adding
+      {
+        path: 'room-types',
+        element: <RoomTypes />,
+      },
+        {
+        path: 'room-management',
+        element: <RoomManagement />,
+      },
     ],
   },
 ])

@@ -1,16 +1,26 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router";
 import {
-  LayoutDashboard,
   Home,
-  Gauge,
-  CreditCard,
   LogOut as LogOutIcon,
   FileText,
   Users,
   Menu,
   X,
+  Calendar,
+  Clock,
+  ClipboardList,
+  Grid3x3,
+  BarChart3,
+  UserCog,
+  Droplets,
 } from "lucide-react";
+
+interface MenuItem {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  path: string;
+}
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -45,15 +55,19 @@ export default function MainLayout() {
     navigate("/login");
   };
 
-  const menuItems = [
-    { path: "/", icon: LayoutDashboard, label: "แผงควบคุม" },
-    { path: "/rooms", icon: Home, label: "จัดการห้องพัก" },
-    { path: "/meter", icon: Gauge, label: "จดมิเตอร์/ออกบิล" },
-    { path: "/payments", icon: CreditCard, label: "บันทึกการชำระเงิน" },
-    { path: "/moveout", icon: LogOutIcon, label: "สรุปย้ายออก" },
-    { path: "/reports", icon: FileText, label: "รายงาน" },
-    { path: "/users", icon: Users, label: "จัดการผู้ใช้" },
-  ];
+const menuItems: MenuItem[] = [
+  { icon: Home, label: 'หน้าหลัก', path: '/' },
+  { icon: Home, label: 'จัดการห้องพัก', path: '/room-management' },
+  { icon: Calendar, label: 'ปฏิทินห้องพัก', path: '/calendar' },
+  { icon: Clock, label: 'การเช่ารายวัน', path: '/daily-rental' },
+  { icon: FileText, label: 'จัดการสัญญา', path: '/contracts' },
+  { icon: Users, label: 'จัดการลูกค้า', path: '/customers' },
+  { icon: ClipboardList, label: 'จดมิเตอร์/ออกบิล', path: '/meter-billing' },
+  { icon: Grid3x3, label: 'ประเภทห้องพัก', path: '/room-types' },
+  { icon: BarChart3, label: 'รายงาน', path: '/reports' },
+  { icon: UserCog, label: 'จัดการผู้ใช้', path: '/users' },
+  { icon: Droplets, label: 'ค่าน้ำ-ไฟ', path: '/utility-rates' },
+];
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -128,6 +142,7 @@ export default function MainLayout() {
                 }`}
               >
                 <Icon
+                  size={20}
                   className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
                     isActive ? "scale-110" : "group-hover:scale-110"
                   }`}
