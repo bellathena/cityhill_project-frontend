@@ -8,6 +8,7 @@ import { RoomTypes } from '../pages/RoomTypes'
 import { RoomManagement } from '../pages/RoomManagement'
 import { UtilityRates } from '../pages/UtilityRates'
 import { CustomerManagement } from '../pages/CustomerManagement'
+import { RoomCalendar } from '../pages/RoomCalendar'
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
       {
         path: 'customers',
         element: <CustomerManagement />,
+      },
+      {
+        path: 'room-calendar',
+        element: <RoomCalendar />,
       },
     ],
   },

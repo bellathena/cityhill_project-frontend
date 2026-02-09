@@ -58,7 +58,7 @@ export default function MainLayout() {
 const menuItems: MenuItem[] = [
   { icon: Home, label: 'หน้าหลัก', path: '/' },
   { icon: Home, label: 'จัดการห้องพัก', path: '/room-management' },
-  { icon: Calendar, label: 'ปฏิทินห้องพัก', path: '/calendar' },
+  { icon: Calendar, label: 'ปฏิทินห้องพัก', path: '/room-calendar' },
   { icon: Clock, label: 'การเช่ารายวัน', path: '/daily-rental' },
   { icon: FileText, label: 'จัดการสัญญา', path: '/contracts' },
   { icon: Users, label: 'จัดการลูกค้า', path: '/customers' },
