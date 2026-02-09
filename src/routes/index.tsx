@@ -10,8 +10,10 @@ import { UtilityRates } from '../pages/UtilityRates'
 import { CustomerManagement } from '../pages/CustomerManagement'
 import { RoomCalendar } from '../pages/RoomCalendar'
 import { ContractManagement } from '../pages/Contract/ContractManagement'
-import { DailyRental } from '../pages/DailyRental'
+import { DailyRental } from '../pages/Daily/DailyRental'
 import ContractDetail from '../pages/Contract/ContractDetail'
+import DailyDetail from '../pages/Daily/DailyDetail'
+
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -64,6 +66,10 @@ export const router = createBrowserRouter([
       {
         path:'daily-rental',
         element: <DailyRental />
+      },
+         {
+        path:'daily-rental/:rentalId',
+        element: <DailyDetail />
       }
     ],
   },

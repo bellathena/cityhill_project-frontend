@@ -55,19 +55,19 @@ export default function MainLayout() {
     navigate("/login");
   };
 
-const menuItems: MenuItem[] = [
-  { icon: Home, label: 'หน้าหลัก', path: '/' },
-  { icon: Home, label: 'จัดการห้องพัก', path: '/room-management' },
-  { icon: Calendar, label: 'ปฏิทินห้องพัก', path: '/room-calendar' },
-  { icon: Clock, label: 'จัดการเช่ารายวัน', path: '/daily-rental' },
-  { icon: FileText, label: 'จัดการสัญญา', path: '/contracts' },
-  { icon: Users, label: 'จัดการลูกค้า', path: '/customers' },
-  { icon: ClipboardList, label: 'จดมิเตอร์/ออกบิล', path: '/meter-billing' },
-  { icon: Grid3x3, label: 'ประเภทห้องพัก', path: '/room-types' },
-  { icon: BarChart3, label: 'รายงาน', path: '/reports' },
-  { icon: UserCog, label: 'จัดการผู้ใช้', path: '/users' },
-  { icon: Droplets, label: 'ค่าน้ำ-ไฟ', path: '/ultily-management' },
-];
+  const menuItems: MenuItem[] = [
+    { icon: BarChart3, label: "หน้าหลัก", path: "/" },
+    { icon: Home, label: "จัดการห้องพัก", path: "/room-management" },
+    { icon: Grid3x3, label: "จัดการประเภทห้องพัก", path: "/room-types" },
+    { icon: Calendar, label: "ปฏิทินห้องพัก", path: "/room-calendar" },
+    { icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
+    { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
+
+    { icon: ClipboardList, label: "จดมิเตอร์/ออกบิล", path: "/meter-billing" },
+    { icon: UserCog, label: "จัดการผู้ใช้", path: "/users" },
+    { icon: Users, label: "จัดการลูกค้า", path: "/customers" },
+    { icon: Droplets, label: "ค่าน้ำ-ไฟ", path: "/ultily-management" },
+  ];
 
   const handleNavClick = () => {
     if (isMobile) {

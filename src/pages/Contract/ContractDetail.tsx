@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../lib/axios";
 import {
@@ -11,32 +11,87 @@ import {
   MapPin,
   Phone,
   CreditCard,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "../../component/ui/button";
 import { useReactToPrint } from "react-to-print";
 import ContractPdf from "../../component/ContractPdf";
+import { useToast } from "../../context/ToastContext";
 
 const ContractDetail = () => {
   const { contractId } = useParams();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const [contract, setContract] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
-
+  const [isProcessing, setIsProcessing] = useState(false);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: contract ? `contract-${contract.id}` : "contract",
   });
 
-  useEffect(() => {
+  const fetchContractData = useCallback(async () => {
     if (!contractId) return;
-    api
-      .get(`/monthly-contracts/${contractId}`)
-      .then((res) => setContract(res.data))
-      .catch((err) => console.error("Error:", err))
-      .finally(() => setLoading(false));
-  }, [contractId]);
+    try {
+      setLoading(true);
+      const res = await api.get(`/monthly-contracts/${contractId}`);
+      setContract(res.data);
+    } catch (err) {
+      console.error("Error:", err);
+      addToast("ไม่สามารถโหลดข้อมูลสัญญาได้", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [contractId, addToast]);
 
+  useEffect(() => {
+    fetchContractData();
+  }, [fetchContractData]);
+
+  // ฟังชันอนุมัติสัญญา
+  const handleApproveContract = async () => {
+    if (!contract || isProcessing) return;
+
+    try {
+      setIsProcessing(true);
+      await api.put(`/monthly-contracts/${contract.id}`, {
+        contractStatus: "ACTIVE",
+      });
+
+      addToast("อนุมัติสัญญาสำเร็จ ระบบเปลี่ยนสถานะเป็นใช้งานแล้ว", "success");
+
+      // ดึงข้อมูลใหม่เพื่ออัปเดตหน้าจอ (สถานะจะเปลี่ยนจาก PENDING เป็น ACTIVE)
+      await fetchContractData();
+    } catch (error: any) {
+      console.error("Approve error:", error);
+      const errorMessage = error.response?.data?.message || error.message;
+      addToast(`ไม่สามารถอนุมัติได้: ${errorMessage}`, "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  const handleClosedContract = async () => {
+    if (!contract || isProcessing) return;
+
+    try {
+      setIsProcessing(true);
+      await api.put(`/monthly-contracts/${contract.id}`, {
+        contractStatus: "CLOSED",
+      });
+
+      addToast("อนุมัติสัญญาสำเร็จ ระบบเปลี่ยนสถานะเป็นใช้งานแล้ว", "success");
+
+      // ดึงข้อมูลใหม่เพื่ออัปเดตหน้าจอ (สถานะจะเปลี่ยนจาก PENDING เป็น ACTIVE)
+      await fetchContractData();
+    } catch (error: any) {
+      console.error("Approve error:", error);
+      const errorMessage = error.response?.data?.message || error.message;
+      addToast(`ไม่สามารถอนุมัติได้: ${errorMessage}`, "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   if (loading)
     return (
       <div className="flex justify-center items-center h-64 animate-pulse text-slate-500">
@@ -71,13 +126,28 @@ const ContractDetail = () => {
         })
       : "-";
 
-  const statusStyles =
-    {
-      ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      PENDING: "bg-amber-50 text-amber-700 border-amber-200",
-      CLOSED: "bg-slate-50 text-slate-700 border-slate-200",
-    }[contractStatus as "ACTIVE" | "PENDING" | "CLOSED"] ||
-    "bg-gray-50 text-gray-700";
+  const STATUS_MAP = {
+    ACTIVE: {
+      label: "สัญญามีผล",
+      style: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    },
+    PENDING: {
+      label: "รอดำเนินการ",
+      style: "bg-amber-50 text-amber-700 border-amber-200",
+    },
+    CLOSED: {
+      label: "หมดสัญญาแล้ว",
+      style: "bg-slate-50 text-slate-700 border-slate-200",
+    },
+  };
+
+
+  const currentStatus = STATUS_MAP[
+    contractStatus as keyof typeof STATUS_MAP
+  ] || {
+    label: contractStatus,
+    style: "bg-gray-50 text-gray-700",
+  };
 
   return (
     <div className="w-full space-y-8 p-4 md:p-8 animate-in fade-in duration-500">
@@ -96,9 +166,9 @@ const ContractDetail = () => {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">สัญญา #{id}</h1>
               <span
-                className={`px-3 py-0.5 rounded-full text-xs font-semibold border ${statusStyles}`}
+                className={`px-3 py-0.5 rounded-full text-xs font-semibold border ${currentStatus.style}`}
               >
-                {contractStatus}
+                {currentStatus.label}
               </span>
             </div>
             <p className="text-slate-500 text-sm italic">
@@ -107,13 +177,77 @@ const ContractDetail = () => {
           </div>
         </div>
 
-        <Button
-          onClick={() => handlePrint()}
-          className="bg-blue-600 hover:bg-indigo-700 text-white shadow-sm transition-all flex items-center gap-2 px-6"
-        >
-          <FileText size={18} />
-          พิมพ์เอกสารสัญญา
-        </Button>
+        <div className="flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
+          {/* ปุ่มพิมพ์: ปรับให้ดูเบาลง เป็น Secondary Action */}
+          <Button
+            onClick={() => handlePrint()}
+            variant="ghost"
+            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-xl transition-all"
+          >
+            <FileText size={18} />
+            <span className="text-sm font-semibold">พิมพ์สัญญา</span>
+          </Button>
+
+          {/* เส้นแบ่ง (Vertical Divider) */}
+          {contractStatus === "PENDING" && (
+            <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+          )}
+
+          {/* ปุ่มยืนยัน: ปรับให้เป็นพระเอกของหน้า (Hero Action) */}
+          {contractStatus === "PENDING" && (
+            <Button
+              onClick={handleApproveContract}
+              disabled={isProcessing}
+              className={`
+                relative overflow-hidden
+                flex items-center gap-2 px-6 py-2.5
+                bg-emerald-600 hover:bg-emerald-500 
+                text-white font-bold text-sm
+                rounded-xl shadow-lg shadow-emerald-200 
+                transition-all active:scale-95 disabled:opacity-70
+      `}
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </div>
+              ) : (
+                <>
+                  <CheckCircle size={18} className="animate-pulse" />
+                  <span>ยืนยันสัญญาเข้าพัก</span>
+                </>
+              )}
+            </Button>
+          )}
+
+           {contractStatus === "ACTIVE" && (
+            <Button
+              onClick={handleClosedContract}
+              disabled={isProcessing}
+              className={`
+              relative overflow-hidden
+              flex items-center gap-2 px-6 py-2.5
+              bg-orange-500 hover:bg-red-200 
+              text-white font-bold text-sm
+              rounded-xl shadow-lg shadow-emerald-200 
+              transition-all active:scale-95 disabled:opacity-70
+            `}
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </div>
+              ) : (
+                <>
+                  <CheckCircle size={18} className="animate-pulse" />
+                  <span>ยืนยันเสร็จสิ้นสัญญา</span>
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

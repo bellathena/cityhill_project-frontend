@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LogIn, LogOut, Receipt } from 'lucide-react';
-import { Button } from '../component/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../component/dialog';
-import { useToast } from '../context/ToastContext';
-import api from '../lib/axios';
+import { Button } from '../../component/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../component/dialog';
+import { useToast } from '../../context/ToastContext';
+import api from '../../lib/axios';
 
 interface Customer {
   id: number;
