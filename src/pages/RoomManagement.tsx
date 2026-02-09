@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../component/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../component/dialog';
 import api from '../lib/axios';
+import { useToast } from '../context/ToastContext';
 
 type RoomStatus = 'AVAILABLE' | 'OCCUPIED_M' | 'OCCUPIED_D' | 'RESERVED' | 'MAINTENANCE';
 type AllowedType = 'MONTHLY' | 'DAILY' | 'FLEXIBLE';
@@ -51,6 +52,7 @@ const statusLabels: Record<RoomStatus, string> = {
 };
 
 export const RoomManagement: React.FC = () => {
+  const { addToast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,9 +65,14 @@ export const RoomManagement: React.FC = () => {
     roomNumber: '',
     floor: '',
     typeId: '',
+    currentStatus: 'AVAILABLE' as RoomStatus,
     pricePerDay: '',
     pricePerMonth: '',
   });
+  const [confirmData, setConfirmData] = useState<{
+    isOpen: boolean;
+    roomId: number | null;
+  }>({ isOpen: false, roomId: null });
 
   // Fetch rooms and room types on mount
   useEffect(() => {
@@ -80,7 +87,7 @@ export const RoomManagement: React.FC = () => {
       setRooms(data);
     } catch (error) {
       console.error('Error fetching rooms:', error);
-      alert('เกิดข้อผิดพลาดในการโหลดข้อมูลห้อง');
+      addToast('เกิดข้อผิดพลาดในการโหลดข้อมูลห้อง', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -101,6 +108,7 @@ export const RoomManagement: React.FC = () => {
       roomNumber: '',
       floor: '',
       typeId: '',
+      currentStatus: 'AVAILABLE',
       pricePerDay: '',
       pricePerMonth: '',
     });
@@ -114,6 +122,7 @@ export const RoomManagement: React.FC = () => {
       roomNumber: room.roomNumber,
       floor: room.floor.toString(),
       typeId: room.typeId.toString(),
+      currentStatus: room.currentStatus,
       pricePerDay: room.roomType.baseDailyRate.toString(),
       pricePerMonth: room.roomType.baseMonthlyRate.toString(),
     });
@@ -127,11 +136,13 @@ export const RoomManagement: React.FC = () => {
           roomNumber: formData.roomNumber,
           floor: formData.floor,
           typeId: parseInt(formData.typeId),
+          currentStatus: formData.currentStatus,
           pricePerDay: formData.pricePerDay,
           pricePerMonth: formData.pricePerMonth,
         };
 
         await api.post('/rooms', newRoom);
+        addToast('เพิ่มห้องสำเร็จ', 'success');
         setIsDialogOpen(false);
         fetchRooms();
       } else if (selectedRoom) {
@@ -139,29 +150,38 @@ export const RoomManagement: React.FC = () => {
           roomNumber: formData.roomNumber,
           floor: formData.floor,
           typeId: parseInt(formData.typeId),
+          currentStatus: formData.currentStatus,
           pricePerDay: formData.pricePerDay,
           pricePerMonth: formData.pricePerMonth,
         };
 
         await api.put(`/rooms/${selectedRoom.id}`, updatedRoom);
+        addToast('อัปเดตห้องสำเร็จ', 'success');
         setIsDialogOpen(false);
         fetchRooms();
       }
     } catch (error) {
       console.error('Error saving room:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลห้อง');
+      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูลห้อง', 'error');
     }
   };
 
   const handleDelete = async (roomId: number) => {
-    if (confirm('คุณต้องการลบห้องนี้หรือไม่?')) {
+    setConfirmData({ isOpen: true, roomId });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (confirmData.roomId) {
       try {
-        console.log('Deleting room with ID:', roomId);
-        await api.delete(`/rooms/${roomId}`);
+        console.log('Deleting room with ID:', confirmData.roomId);
+        await api.delete(`/rooms/${confirmData.roomId}`);
+        addToast('ลบห้องสำเร็จ', 'success');
         fetchRooms();
       } catch (error) {
         console.error('Error deleting room:', error);
-        alert('เกิดข้อผิดพลาดในการลบห้อง');
+        addToast('เกิดข้อผิดพลาดในการลบห้อง', 'error');
+      } finally {
+        setConfirmData({ isOpen: false, roomId: null });
       }
     }
   };
@@ -299,6 +319,21 @@ export const RoomManagement: React.FC = () => {
                 </div>
 
                 <div>
+                  <label className="text-sm font-medium">สถานะห้อง</label>
+                  <select
+                    value={formData.currentStatus}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, currentStatus: e.target.value as RoomStatus })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="AVAILABLE">ว่าง</option>
+                    <option value="OCCUPIED_M">รายเดือน</option>
+                    <option value="OCCUPIED_D">รายวัน</option>
+                    <option value="RESERVED">จอง</option>
+                    <option value="MAINTENANCE">ซ่อม</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className="text-sm font-medium">ราคารายวัน (บาท)</label>
                   <Input
                     type="number"
@@ -340,6 +375,18 @@ export const RoomManagement: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Confirm Delete Dialog */}
+          <ConfirmDialog
+            isOpen={confirmData.isOpen}
+            title="ยืนยันการลบห้อง"
+            description="คุณต้องการลบห้องนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+            confirmText="ลบ"
+            cancelText="ยกเลิก"
+            isDangerous={true}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setConfirmData({ isOpen: false, roomId: null })}
+          />
         </>
       )}
     </div>

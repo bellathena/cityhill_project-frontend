@@ -16,6 +16,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([
     {
       id: 'RT-1',

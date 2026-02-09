@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../component/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../component/dialog';
 import api from '../lib/axios';
+import { useToast } from '../context/ToastContext';
 
 interface RoomType {
   id: number;
@@ -17,6 +18,7 @@ interface RoomType {
 }
 
 export const RoomTypes: React.FC = () => {
+  const { addToast } = useToast();
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -28,6 +30,10 @@ export const RoomTypes: React.FC = () => {
     baseMonthlyRate: '',
     description: '',
   });
+  const [confirmData, setConfirmData] = useState<{
+    isOpen: boolean;
+    typeId: number | null;
+  }>({ isOpen: false, typeId: null });
 
   // Fetch room types data when component mounts
   useEffect(() => {
@@ -80,6 +86,7 @@ export const RoomTypes: React.FC = () => {
         };
         
         await api.post('/room-types', newType);
+        addToast('เพิ่มประเภทห้องสำเร็จ', 'success');
         setIsDialogOpen(false);
         fetchRoomTypes();
       } else if (selectedType) {
@@ -91,23 +98,31 @@ export const RoomTypes: React.FC = () => {
         };
         
         await api.put(`/room-types/${selectedType.id}`, updatedType);
+        addToast('อัปเดตประเภทห้องสำเร็จ', 'success');
         setIsDialogOpen(false);
         fetchRoomTypes();
       }
     } catch (error) {
       console.error('Error saving room type:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     }
   };
 
   const handleDelete = async (typeId: number) => {
-    if (confirm('คุณต้องการลบประเภทห้องพักนี้หรือไม่?')) {
+    setConfirmData({ isOpen: true, typeId });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (confirmData.typeId) {
       try {
-        await api.delete(`/room-types/${typeId}`);
+        await api.delete(`/room-types/${confirmData.typeId}`);
+        addToast('ลบประเภทห้องสำเร็จ', 'success');
         fetchRoomTypes();
       } catch (error) {
         console.error('Error deleting room type:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+        addToast('เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+      } finally {
+        setConfirmData({ isOpen: false, typeId: null });
       }
     }
   };
@@ -234,6 +249,18 @@ export const RoomTypes: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmData.isOpen}
+        title="ยืนยันการลบประเภทห้อง"
+        description="คุณต้องการลบประเภทห้องพักนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        isDangerous={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmData({ isOpen: false, typeId: null })}
+      />
     </div>
   );
 };

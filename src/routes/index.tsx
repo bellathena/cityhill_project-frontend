@@ -6,7 +6,8 @@ import Users from '../pages/UserManagement'
 import MainLayout from '../component/MainLayout'
 import { RoomTypes } from '../pages/RoomTypes'
 import { RoomManagement } from '../pages/RoomManagement'
-
+import { UtilityRates } from '../pages/UtilityRates'
+import { CustomerManagement } from '../pages/CustomerManagement'
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -32,9 +33,17 @@ export const router = createBrowserRouter([
         path: 'room-types',
         element: <RoomTypes />,
       },
-        {
+      {
         path: 'room-management',
         element: <RoomManagement />,
+      },
+      {
+        path: 'ultily-management',
+        element: <UtilityRates />,
+      },
+      {
+        path: 'customers',
+        element: <CustomerManagement />,
       },
     ],
   },

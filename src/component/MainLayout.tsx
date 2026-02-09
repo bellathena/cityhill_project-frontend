@@ -66,7 +66,7 @@ const menuItems: MenuItem[] = [
   { icon: Grid3x3, label: 'ประเภทห้องพัก', path: '/room-types' },
   { icon: BarChart3, label: 'รายงาน', path: '/reports' },
   { icon: UserCog, label: 'จัดการผู้ใช้', path: '/users' },
-  { icon: Droplets, label: 'ค่าน้ำ-ไฟ', path: '/utility-rates' },
+  { icon: Droplets, label: 'ค่าน้ำ-ไฟ', path: '/ultily-management' },
 ];
 
   const handleNavClick = () => {
