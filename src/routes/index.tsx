@@ -9,7 +9,6 @@ import { RoomTypes } from '../pages/RoomTypes'
 import { RoomManagement } from '../pages/RoomManagement'
 import { UtilityRates } from '../pages/UtilityRates'
 import { CustomerManagement } from '../pages/CustomerManagement'
-import { RoomCalendar } from '../pages/RoomCalendar'
 import { ContractManagement } from '../pages/Contract/ContractManagement'
 import { DailyRental } from '../pages/Daily/DailyRental'
 import ContractDetail from '../pages/Contract/ContractDetail'
@@ -45,10 +44,6 @@ export const router = createBrowserRouter([
         element: <CustomerManagement />,
       },
       {
-        path: 'room-calendar',
-        element: <RoomCalendar />,
-      },
-        {
         path: 'contracts',
         element: <ContractManagement />,
       },

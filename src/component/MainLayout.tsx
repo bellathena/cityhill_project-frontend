@@ -7,7 +7,6 @@ import {
   Users,
   Menu,
   X,
-  Calendar,
   Clock,
   ClipboardList,
   Grid3x3,
@@ -60,7 +59,6 @@ export default function MainLayout() {
     { icon: BarChart3, label: "หน้าหลัก", path: "/" },
     { icon: Home, label: "จัดการห้องพัก", path: "/room-management" },
     { icon: Grid3x3, label: "จัดการประเภทห้องพัก", path: "/room-types" },
-    { icon: Calendar, label: "ปฏิทินห้องพัก", path: "/room-calendar" },
     { icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
     { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
 
