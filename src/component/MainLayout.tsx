@@ -30,7 +30,7 @@ export default function MainLayout() {
 
   // Mock data
   const currentUser = {
-    name: "ไฟท์",
+    name: "ธนพร จินดารัตน์",
     role: "Admin",
   };
 
@@ -66,7 +66,7 @@ export default function MainLayout() {
     { icon: ClipboardList, label: "จดมิเตอร์/ออกบิล", path: "/meter-billing" },
     { icon: UserCog, label: "จัดการผู้ใช้", path: "/users" },
     { icon: Users, label: "จัดการลูกค้า", path: "/customers" },
-    { icon: Droplets, label: "ค่าน้ำ-ไฟ", path: "/ultily-management" },
+    { icon: Droplets, label: "ค่าสาธารณูปโภค", path: "/utility-management" },
   ];
 
   const handleNavClick = () => {
