@@ -13,6 +13,8 @@ import {
   BarChart3,
   Receipt,
   Droplets,
+  ChevronDown,
+  Database,
 } from "lucide-react";
 
 interface MenuItem {
@@ -24,6 +26,7 @@ interface MenuItem {
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [dataGroupOpen, setDataGroupOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,17 +58,24 @@ export default function MainLayout() {
     navigate('/');
   };
 
-  const menuItems: MenuItem[] = [
+  const topMenuItems: MenuItem[] = [
     { icon: BarChart3, label: "หน้าหลัก", path: "/" },
-    { icon: Home, label: "จัดการห้องพัก", path: "/room-management" },
-    { icon: Grid3x3, label: "จัดการประเภทห้องพัก", path: "/room-types" },
-    { icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
-    { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
+  ];
 
-    { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
-    { icon: Receipt, label: "ออกบิล", path: "/billing" },
+  const dataMenuItems: MenuItem[] = [
+    { icon: Grid3x3, label: "จัดการประเภทห้องพัก", path: "/room-types" },
+    { icon: Home, label: "จัดการห้องพัก", path: "/room-management" },
     { icon: Users, label: "จัดการลูกค้า", path: "/customers" },
     { icon: Droplets, label: "ค่าสาธารณูปโภค", path: "/utility-management" },
+  ];
+
+  const menuItems: MenuItem[] = [
+    { icon: BarChart3, label: "หน้าหลัก", path: "/" },
+    { icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
+    { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
+    { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
+    { icon: Receipt, label: "ออกบิล", path: "/billing" },
+    ...dataMenuItems,
   ];
 
   const handleNavClick = () => {
@@ -120,8 +130,9 @@ export default function MainLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-2 overflow-y-auto overflow-x-hidden">
-          {menuItems.map((item) => {
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
+          {/* Top items */}
+          {topMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
@@ -131,28 +142,88 @@ export default function MainLayout() {
                 onClick={handleNavClick}
                 title={!sidebarOpen ? item.label : ""}
                 className={`flex items-center transition-all duration-200 group rounded-xl ${
-                  sidebarOpen || isMobile
-                    ? "px-4 py-3 gap-3"
-                    : "justify-center py-3"
+                  sidebarOpen || isMobile ? "px-4 py-3 gap-3" : "justify-center py-3"
                 } ${
-                  isActive
-                    ? "bg-white text-blue-900 shadow-lg"
-                    : "hover:bg-blue-700/50 text-blue-100 hover:text-white"
+                  isActive ? "bg-white text-blue-900 shadow-lg" : "hover:bg-blue-700/50 text-blue-100 hover:text-white"
                 }`}
               >
-                <Icon
-                  size={20}
-                  className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
-                    isActive ? "scale-110" : "group-hover:scale-110"
-                  }`}
+                <Icon size={20} className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+                <span className={`${!sidebarOpen && !isMobile ? "hidden" : "block"} font-medium whitespace-nowrap`}>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* Collapsible: จัดการข้อมูล */}
+          <div>
+            <button
+              onClick={() => (sidebarOpen || isMobile) && setDataGroupOpen((o) => !o)}
+              title={!sidebarOpen ? "จัดการข้อมูล" : ""}
+              className={`w-full flex items-center transition-all duration-200 rounded-xl ${
+                sidebarOpen || isMobile ? "px-4 py-3 gap-3" : "justify-center py-3"
+              } ${
+                dataMenuItems.some((i) => i.path === location.pathname)
+                  ? "bg-blue-700/60 text-white"
+                  : "hover:bg-blue-700/50 text-blue-100 hover:text-white"
+              }`}
+            >
+              <Database size={20} className="w-5 h-5 shrink-0" />
+              <span className={`${!sidebarOpen && !isMobile ? "hidden" : "flex-1 text-left"} font-medium whitespace-nowrap`}>
+                จัดการข้อมูล
+              </span>
+              {(sidebarOpen || isMobile) && (
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform duration-200 ${dataGroupOpen ? "rotate-180" : ""}`}
                 />
-                <span
-                  className={`${
-                    !sidebarOpen && !isMobile ? "hidden" : "block"
-                  } font-medium whitespace-nowrap transition-opacity duration-300`}
-                >
-                  {item.label}
-                </span>
+              )}
+            </button>
+
+            {/* Dropdown items */}
+            {(dataGroupOpen && (sidebarOpen || isMobile)) && (
+              <div className="mt-1 ml-3 pl-3 border-l border-blue-700/50 space-y-1">
+                {dataMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={handleNavClick}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                        isActive ? "bg-white text-blue-900 shadow-lg" : "hover:bg-blue-700/50 text-blue-100 hover:text-white"
+                      }`}
+                    >
+                      <Icon size={16} className={`w-4 h-4 shrink-0 ${isActive ? "scale-110" : "group-hover:scale-110"} transition-transform`} />
+                      <span className="font-medium whitespace-nowrap text-sm">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Remaining items */}
+          {[{ icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
+            { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
+            { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
+            { icon: Receipt, label: "ออกบิล", path: "/billing" },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={handleNavClick}
+                title={!sidebarOpen ? item.label : ""}
+                className={`flex items-center transition-all duration-200 group rounded-xl ${
+                  sidebarOpen || isMobile ? "px-4 py-3 gap-3" : "justify-center py-3"
+                } ${
+                  isActive ? "bg-white text-blue-900 shadow-lg" : "hover:bg-blue-700/50 text-blue-100 hover:text-white"
+                }`}
+              >
+                <Icon size={20} className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+                <span className={`${!sidebarOpen && !isMobile ? "hidden" : "block"} font-medium whitespace-nowrap`}>{item.label}</span>
               </Link>
             );
           })}
