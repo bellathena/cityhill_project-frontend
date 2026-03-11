@@ -12,7 +12,7 @@ import {
   ClipboardList,
   Grid3x3,
   BarChart3,
-  UserCog,
+  Receipt,
   Droplets,
 } from "lucide-react";
 
@@ -64,8 +64,8 @@ export default function MainLayout() {
     { icon: Clock, label: "จัดการเช่ารายวัน", path: "/daily-rental" },
     { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
 
-    { icon: ClipboardList, label: "จดมิเตอร์/ออกบิล", path: "/meter-billing" },
-    { icon: UserCog, label: "จัดการผู้ใช้", path: "/users" },
+    { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
+    { icon: Receipt, label: "ออกบิล", path: "/billing" },
     { icon: Users, label: "จัดการลูกค้า", path: "/customers" },
     { icon: Droplets, label: "ค่าสาธารณูปโภค", path: "/utility-management" },
   ];

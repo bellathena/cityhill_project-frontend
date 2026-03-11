@@ -1,8 +1,10 @@
 import { createBrowserRouter } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
 import Dashboard from '../pages/Dashboard'
-import Users from '../pages/UserManagement'
 import MainLayout from '../component/MainLayout'
+import UtilityUsage from '../pages/UtilityUsage'
+import Billing from '../pages/Billing'
+import Payment from '../pages/Payment'
 import { RoomTypes } from '../pages/RoomTypes'
 import { RoomManagement } from '../pages/RoomManagement'
 import { UtilityRates } from '../pages/UtilityRates'
@@ -25,10 +27,6 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Dashboard />,
-      },
-      {
-        path: 'users',
-        element: <Users />,
       },
       {
         path: 'room-types',
@@ -65,6 +63,18 @@ export const router = createBrowserRouter([
          {
         path:'daily-rental/:rentalId',
         element: <DailyDetail />
+      },
+      {
+        path: 'utility-usage',
+        element: <UtilityUsage />,
+      },
+      {
+        path: 'billing',
+        element: <Billing />,
+      },
+      {
+        path: 'billing/payment/:invoiceId',
+        element: <Payment />,
       }
     ],
   },
