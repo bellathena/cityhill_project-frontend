@@ -52,7 +52,8 @@ export default function MainLayout() {
   }, []);
 
   const handleLogout = () => {
-    navigate("/login");
+    localStorage.removeItem('authToken');
+    navigate('/');
   };
 
   const menuItems: MenuItem[] = [

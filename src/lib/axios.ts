@@ -32,9 +32,7 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     // Handle errors globally
     if (error.response?.status === 401) {
-      // Unauthorized - redirect to login
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
     }
     if (error.response?.status === 403) {
       // Forbidden

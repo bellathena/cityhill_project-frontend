@@ -1,6 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
-import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import Users from '../pages/UserManagement'
 import MainLayout from '../component/MainLayout'
@@ -15,10 +14,6 @@ import ContractDetail from '../pages/Contract/ContractDetail'
 import DailyDetail from '../pages/Daily/DailyDetail'
 
 export const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <Login />,
-  },
   {
     path: '/',
     element: (
@@ -44,7 +39,7 @@ export const router = createBrowserRouter([
         element: <RoomManagement />,
       },
       {
-        path: 'ultily-management',
+        path: 'utility-management',
         element: <UtilityRates />,
       },
       {
