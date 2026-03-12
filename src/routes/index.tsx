@@ -13,6 +13,8 @@ import { ContractManagement } from '../pages/Contract/ContractManagement'
 import { DailyRental } from '../pages/Daily/DailyRental'
 import ContractDetail from '../pages/Contract/ContractDetail'
 import DailyDetail from '../pages/Daily/DailyDetail'
+import { UserManagement } from '../pages/UserManagement'
+import { MoveOutSettlement } from '../pages/MoveOutSettlement'
 
 export const router = createBrowserRouter([
   {
@@ -70,7 +72,15 @@ export const router = createBrowserRouter([
       {
         path: 'billing/payment/:invoiceId',
         element: <Payment />,
-      }
+      },
+      {
+        path: 'users',
+        element: <UserManagement />,
+      },
+      {
+        path: 'move-out-settlements',
+        element: <MoveOutSettlement />,
+      },
     ],
   },
 ])

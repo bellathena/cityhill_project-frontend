@@ -1,30 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, LogOut, Receipt } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Eye, Trash2, Search, X } from 'lucide-react';
 import { Button } from '../../component/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../component/dialog';
-import { useToast } from '../../context/ToastContext';
+import { Input } from '../../component/ui/input';
+import { Select } from '../../component/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../../component/dialog';
 import api from '../../lib/axios';
+import { useToast } from '../../context/ToastContext';
+
+interface Room {
+  roomNumber: number;
+  floor: number;
+  typeId: number;
+  allowedType: string;
+  currentStatus: string;
+  roomType?: { typeName: string; baseDailyRate: number };
+}
 
 interface Customer {
   id: number;
   fullName: string;
   phone: string;
-}
-
-interface Room {
-  id: number;
-  roomNumber: string;
-  floor: number;
-  typeId: number;
-  currentStatus: string;
-  pricePerDay?: number;
-}
-
-interface RoomType {
-  id: number;
-  typeName: string;
-  baseMonthlyRate: number;
-  baseDailyRate: number;
+  citizenId: string;
 }
 
 interface DailyBooking {
@@ -33,492 +30,323 @@ interface DailyBooking {
   roomId: number;
   checkInDate: string;
   checkOutDate: string;
-  numGuests: number;
+  numGuests?: number;
+  extraBedCount?: number;
   totalAmount: number;
   bookingStatus: string;
   paymentStatus: string;
+  customer?: Customer;
+  room?: Room;
 }
 
 export const DailyRental: React.FC = () => {
   const { addToast } = useToast();
-  
-  // Data states
-  const [dailyBookings, setDailyBookings] = useState<DailyBooking[]>([]);
+  const navigate = useNavigate();
+  const [bookings, setBookings] = useState<DailyBooking[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Dialog states
-  const [selectedBooking, setSelectedBooking] = useState<DailyBooking | null>(null);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    type: 'checkin' | 'checkout' | null;
-    bookingId: number | null;
-  }>({
-    isOpen: false,
-    type: null,
-    bookingId: null,
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
+  const now = new Date();
+  const [searchText, setSearchText] = useState('');
+  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [filterYear, setFilterYear] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+
+  const [form, setForm] = useState({
+    customerId: '',
+    roomId: '',
+    checkInDate: new Date().toISOString().split('T')[0],
+    checkOutDate: '',
+    numGuests: '1',
+    extraBedCount: '0',
+    totalAmount: '',
   });
 
-  // Fetch all data
-  const fetchAllData = async () => {
+  useEffect(() => { fetchData(); }, []);
+
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const [bookingsRes, roomsRes, customersRes, typesRes] = await Promise.all([
+      const [bkRes, rmRes, custRes] = await Promise.all([
         api.get('/daily-bookings'),
         api.get('/rooms'),
         api.get('/customers'),
-        api.get('/room-types'),
       ]);
-
-      setDailyBookings(bookingsRes.data);
-      setRooms(roomsRes.data);
-      setCustomers(customersRes.data);
-      setRoomTypes(typesRes.data);
-    } catch (error) {
+      setBookings(bkRes.data || []);
+      setRooms(rmRes.data || []);
+      setCustomers(custRes.data || []);
+    } catch {
       addToast('ไม่สามารถโหลดข้อมูลได้', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  const getRoom = (roomId: number) => rooms.find((r) => r.roomNumber === roomId);
+  const getCustomer = (customerId: number) => customers.find((c) => c.id === customerId);
 
-  const handleCheckIn = (bookingId: number) => {
-    setConfirmDialog({
-      isOpen: true,
-      type: 'checkin',
-      bookingId,
+  // Available rooms for daily rental
+  const availableRooms = rooms.filter(
+    (r) => (r.allowedType === 'DAILY' || r.allowedType === 'FLEXIBLE') && r.currentStatus === 'AVAILABLE'
+  );
+
+  const handleRoomChange = (roomNumber: string) => {
+    const room = rooms.find((r) => r.roomNumber === Number(roomNumber));
+    const rate = room?.roomType?.baseDailyRate ?? 0;
+    setForm((f) => {
+      const nights = calcNights(f.checkInDate, f.checkOutDate);
+      return { ...f, roomId: roomNumber, totalAmount: nights > 0 ? String(rate * nights) : String(rate) };
     });
   };
 
-  const handleConfirmCheckIn = async () => {
-    if (!confirmDialog.bookingId) return;
-    
+  const calcNights = (cin: string, cout: string) => {
+    if (!cin || !cout) return 0;
+    const d1 = new Date(cin);
+    const d2 = new Date(cout);
+    const diff = Math.max(0, Math.ceil((d2.getTime() - d1.getTime()) / 86400000));
+    return diff;
+  };
+
+  const handleCreate = async () => {
     try {
-      console.log('Checking in booking:', confirmDialog.bookingId);
-      await api.put(`/daily-bookings/${confirmDialog.bookingId}`, {
-        bookingStatus: 'STAYED',
+      if (!form.customerId || !form.roomId || !form.checkInDate || !form.checkOutDate) {
+        addToast('กรุณากรอกข้อมูลให้ครบ', 'warning');
+        return;
+      }
+      await api.post('/daily-bookings', {
+        customerId: Number(form.customerId),
+        roomId: Number(form.roomId),
+        checkInDate: form.checkInDate,
+        checkOutDate: form.checkOutDate,
+        numGuests: Number(form.numGuests) || 1,
+        extraBedCount: Number(form.extraBedCount) || 0,
+        totalAmount: parseFloat(form.totalAmount) || 0,
       });
-      addToast('เช็คอินสำเร็จ', 'success');
-      setConfirmDialog({ isOpen: false, type: null, bookingId: null });
-      fetchAllData();
-    } catch (error: any) {
-      console.error('Check-in error:', error);
-      const errorMessage = error.response?.data?.message || error.message;
-      addToast(`ไม่สามารถเช็คอินได้: ${errorMessage}`, 'error');
+      addToast('สร้างการจองสำเร็จ', 'success');
+      setIsCreateOpen(false);
+      fetchData();
+    } catch (err: any) {
+      addToast(err.response?.data?.error || 'เกิดข้อผิดพลาด', 'error');
     }
   };
 
-  const handleCheckOut = (bookingId: number) => {
-    setConfirmDialog({
-      isOpen: true,
-      type: 'checkout',
-      bookingId,
-    });
-  };
-
-  const handleConfirmCheckOut = async () => {
-    if (!confirmDialog.bookingId) return;
-    
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete.id) return;
     try {
-      console.log('Checking out booking:', confirmDialog.bookingId);
-      await api.put(`/daily-bookings/${confirmDialog.bookingId}`, {
-        bookingStatus: 'CHECKED_OUT',
-      });
-      addToast('เช็คเอาท์สำเร็จ', 'success');
-      setConfirmDialog({ isOpen: false, type: null, bookingId: null });
-      fetchAllData();
-    } catch (error: any) {
-      console.error('Check-out error:', error);
-      const errorMessage = error.response?.data?.message || error.message;
-      addToast(`ไม่สามารถเช็คเอาท์ได้: ${errorMessage}`, 'error');
+      await api.delete(`/daily-bookings/${confirmDelete.id}`);
+      addToast('ลบรายการสำเร็จ', 'success');
+      fetchData();
+    } catch {
+      addToast('ไม่สามารถลบได้', 'error');
+    } finally {
+      setConfirmDelete({ open: false, id: null });
     }
   };
 
-  const getRoom = (roomId: number) => {
-    return rooms.find((r) => r.id === roomId);
+  const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+
+  const filteredBookings = bookings.filter((bk) => {
+    const room = bk.room || getRoom(bk.roomId);
+    const customer = bk.customer || getCustomer(bk.customerId);
+    const q = searchText.toLowerCase();
+    if (q && !String(room?.roomNumber ?? '').includes(q) && !(customer?.fullName ?? '').toLowerCase().includes(q)) return false;
+    if (filterMonth || filterYear) {
+      const d = new Date(bk.checkInDate);
+      if (filterMonth && d.getMonth() !== Number(filterMonth)) return false;
+      if (filterYear && d.getFullYear() !== Number(filterYear)) return false;
+    }
+    if (filterStatus && bk.bookingStatus !== filterStatus) return false;
+    return true;
+  });
+
+  const clearFilters = () => { setSearchText(''); setFilterMonth(''); setFilterYear(''); setFilterStatus(''); };
+  const hasFilter = searchText || filterMonth || filterYear || filterStatus;
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { class: string; label: string }> = {
+      PENDING: { class: 'bg-amber-100 text-amber-700', label: 'รอเข้าพัก' },
+      STAYED: { class: 'bg-blue-100 text-blue-700', label: 'เข้าพักแล้ว' },
+      CHECKED_OUT: { class: 'bg-slate-100 text-slate-700', label: 'เช็คเอาท์แล้ว' },
+      CANCELLED: { class: 'bg-red-100 text-red-700', label: 'ยกเลิก' },
+    };
+    const s = map[status] || { class: 'bg-gray-100 text-gray-700', label: status };
+    return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
 
-  const getCustomer = (customerId: number) => {
-    return customers.find((c) => c.id === customerId);
+  const paymentBadge = (status: string) => {
+    const map: Record<string, { class: string; label: string }> = {
+      PENDING: { class: 'bg-amber-100 text-amber-700', label: 'รอชำระ' },
+      PAID: { class: 'bg-green-100 text-green-700', label: 'ชำระแล้ว' },
+    };
+    const s = map[status] || { class: 'bg-gray-100 text-gray-700', label: status };
+    return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const calculateDays = (checkIn: string, checkOut: string) => {
-    const diff = new Date(checkOut).getTime() - new Date(checkIn).getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
-  };
-
-  // Filter bookings by status
-  const pendingBookings = dailyBookings.filter((b) => b.bookingStatus === 'PENDING');
-  const checkedInBookings = dailyBookings.filter((b) => b.bookingStatus === 'STAYED');
-  const checkedOutBookings = dailyBookings.filter((b) => b.bookingStatus === 'CHECKED_OUT');
-
-  if (loading) {
-    return <div className="p-6 text-center">Loading...</div>;
-  }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">จัดการการเช่ารายวัน</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">จัดการเช่ารายวัน</h1>
+        <Button onClick={() => { setForm({ customerId: '', roomId: '', checkInDate: new Date().toISOString().split('T')[0], checkOutDate: '', numGuests: '1', extraBedCount: '0', totalAmount: '' }); setIsCreateOpen(true); }} className="flex items-center gap-2">
+          <Plus size={16} /> สร้างการจอง
+        </Button>
+      </div>
 
-      {/* Pending Bookings */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-medium">การจองที่รอเช็คอิน</h2>
+      {/* Search + Filter bar */}
+      <div className="bg-white rounded-lg shadow p-4 flex flex-wrap gap-3 items-end">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="ค้นหาห้อง หรือชื่อผู้เข้าพัก..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+        <div className="min-w-[140px]">
+          <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}>
+            <option value="">ทุกเดือน</option>
+            {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </Select>
+        </div>
+        <div className="min-w-[120px]">
+          <Select value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+            <option value="">ทุกปี</option>
+            {yearOptions.map((y) => <option key={y} value={y}>{y + 543} ({y})</option>)}
+          </Select>
+        </div>
+        <div className="min-w-[140px]">
+          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="">ทุกสถานะ</option>
+            <option value="PENDING">รอเข้าพัก</option>
+            <option value="STAYED">เข้าพักแล้ว</option>
+            <option value="CHECKED_OUT">เช็คเอาท์แล้ว</option>
+            <option value="CANCELLED">ยกเลิก</option>
+          </Select>
+        </div>
+        {hasFilter && (
+          <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-red-600 border border-gray-300 rounded-lg hover:border-red-300 transition-colors">
+            <X size={14} /> ล้าง
+          </button>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        {loading ? (
+          <div className="py-12 text-center text-gray-400">กำลังโหลด...</div>
+        ) : filteredBookings.length === 0 ? (
+          <div className="py-12 text-center text-gray-400">{hasFilter ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ไม่มีรายการเช่ารายวัน'}</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">เลขห้อง</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ชื่อลูกค้า</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คอิน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คเอาท์</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จำนวนวัน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ยอดรวม</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จัดการ</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">ห้อง</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">ผู้เข้าพัก</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คอิน</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คเอาท์</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-700">ราคารวม</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">สถานะจอง</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">การชำระ</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {pendingBookings.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    ไม่มีการจองที่รอเช็คอิน
-                  </td>
-                </tr>
-              ) : (
-                pendingBookings.map((booking) => {
-                  const room = getRoom(booking.roomId);
-                  const customer = getCustomer(booking.customerId);
-                  const days = calculateDays(booking.checkInDate, booking.checkOutDate);
-                  return (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{room?.roomNumber}</td>
-                      <td className="px-4 py-3">{customer?.fullName}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkInDate)}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkOutDate)}</td>
-                      <td className="px-4 py-3">{days} วัน</td>
-                      <td className="px-4 py-3">{booking.totalAmount.toLocaleString()} บาท</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleCheckIn(booking.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <LogIn size={16} />
-                            เช็คอิน
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setShowReceipt(true);
-                            }}
-                            className="flex items-center gap-1"
-                          >
-                            <Receipt size={16} />
-                            ใบเสร็จ
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              {filteredBookings.map((bk) => {
+                const room = bk.room || getRoom(bk.roomId);
+                const customer = bk.customer || getCustomer(bk.customerId);
+                return (
+                  <tr key={bk.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{room?.roomNumber ?? bk.roomId}</td>
+                    <td className="px-4 py-3">{customer?.fullName ?? '-'}</td>
+                    <td className="px-4 py-3">{formatDate(bk.checkInDate)}</td>
+                    <td className="px-4 py-3">{formatDate(bk.checkOutDate)}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{fmt(bk.totalAmount)}</td>
+                    <td className="px-4 py-3 text-center">{statusBadge(bk.bookingStatus)}</td>
+                    <td className="px-4 py-3 text-center">{paymentBadge(bk.paymentStatus)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => navigate(`/daily-rental/${bk.id}`)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600"><Eye size={16} /></button>
+                        <button onClick={() => setConfirmDelete({ open: true, id: bk.id })} className="p-2 hover:bg-red-100 rounded-lg text-red-600"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
 
-      {/* Checked In Bookings */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-medium">กำลังพักอยู่</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">เลขห้อง</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ชื่อลูกค้า</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คอิน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คเอาท์</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จำนวนวัน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ยอดรวม</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {checkedInBookings.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    ไม่มีแขกที่กำลังพักอยู่
-                  </td>
-                </tr>
-              ) : (
-                checkedInBookings.map((booking) => {
-                  const room = getRoom(booking.roomId);
-                  const customer = getCustomer(booking.customerId);
-                  const days = calculateDays(booking.checkInDate, booking.checkOutDate);
-                  return (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{room?.roomNumber}</td>
-                      <td className="px-4 py-3">{customer?.fullName}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkInDate)}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkOutDate)}</td>
-                      <td className="px-4 py-3">{days} วัน</td>
-                      <td className="px-4 py-3">{booking.totalAmount.toLocaleString()} บาท</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleCheckOut(booking.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <LogOut size={16} />
-                            เช็คเอาท์
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setShowReceipt(true);
-                            }}
-                            className="flex items-center gap-1"
-                          >
-                            <Receipt size={16} />
-                            ใบเสร็จ
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Checked Out History */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-medium">ประวัติการเช็คเอาท์</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">เลขห้อง</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ชื่อลูกค้า</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คอิน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">เช็คเอาท์</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จำนวนวัน</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">ยอดรวม</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {checkedOutBookings.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    ไม่มีประวัติการเช็คเอาท์
-                  </td>
-                </tr>
-              ) : (
-                checkedOutBookings.map((booking) => {
-                  const room = getRoom(booking.roomId);
-                  const customer = getCustomer(booking.customerId);
-                  const days = calculateDays(booking.checkInDate, booking.checkOutDate);
-                  return (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{room?.roomNumber}</td>
-                      <td className="px-4 py-3">{customer?.fullName}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkInDate)}</td>
-                      <td className="px-4 py-3">{formatDate(booking.checkOutDate)}</td>
-                      <td className="px-4 py-3">{days} วัน</td>
-                      <td className="px-4 py-3">{booking.totalAmount.toLocaleString()} บาท</td>
-                      <td className="px-4 py-3">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            setSelectedBooking(booking);
-                            setShowReceipt(true);
-                          }}
-                          className="flex items-center gap-1"
-                        >
-                          <Receipt size={16} />
-                          ใบเสร็จ
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Receipt Dialog */}
-      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>ใบเสร็จรับเงิน</DialogTitle>
-          </DialogHeader>
-
-          {selectedBooking && (
-            <div className="py-4 space-y-4">
-              <div className="text-center border-b pb-4">
-                <h3 className="font-semibold text-lg">City Hill Apartment</h3>
-                <p className="text-sm text-gray-600">ใบเสร็จค่าเช่ารายวัน</p>
+      {/* Create Booking Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>สร้างการจองรายวัน</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">ลูกค้า *</label>
+              <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">เลือกลูกค้า</option>
+                {customers.map((c) => (<option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">ห้องพัก *</label>
+              <select value={form.roomId} onChange={(e) => handleRoomChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">เลือกห้องว่าง</option>
+                {availableRooms.map((r) => (
+                  <option key={r.roomNumber} value={r.roomNumber}>
+                    ห้อง {r.roomNumber} - {r.roomType?.typeName} ({r.roomType?.baseDailyRate?.toLocaleString()} บาท/คืน)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">เช็คอิน *</label>
+                <Input type="date" value={form.checkInDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, checkInDate: e.target.value })} />
               </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">เลขห้อง:</span>
-                  <span className="font-medium">
-                    {getRoom(selectedBooking.roomId)?.roomNumber}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ชื่อลูกค้า:</span>
-                  <span className="font-medium">{getCustomer(selectedBooking.customerId)?.fullName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">วันที่เข้าพัก:</span>
-                  <span className="font-medium">
-                    {formatDate(selectedBooking.checkInDate)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">วันที่ออก:</span>
-                  <span className="font-medium">
-                    {formatDate(selectedBooking.checkOutDate)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">จำนวนวัน:</span>
-                  <span className="font-medium">
-                    {calculateDays(
-                      selectedBooking.checkInDate,
-                      selectedBooking.checkOutDate
-                    )}{' '}
-                    วัน
-                  </span>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>ยอดรวมทั้งสิ้น:</span>
-                  <span className="text-blue-600">
-                    {selectedBooking.totalAmount.toLocaleString()} บาท
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-center text-xs text-gray-500 pt-4">
-                <p>ขอบคุณที่ใช้บริการ</p>
-                <p>{new Date().toLocaleDateString('th-TH')}</p>
+              <div>
+                <label className="text-sm font-medium">เช็คเอาท์ *</label>
+                <Input type="date" value={form.checkOutDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, checkOutDate: e.target.value })} />
               </div>
             </div>
-          )}
-
-          <DialogFooter className="flex gap-2 pt-4">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => window.print()}
-              className="flex-1"
-            >
-              พิมพ์
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowReceipt(false)}
-              className="flex-1"
-            >
-              ปิด
-            </Button>
-          </DialogFooter>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">จำนวนผู้เข้าพัก</label>
+                <Input type="number" min="1" value={form.numGuests} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, numGuests: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">เตียงเสริม</label>
+                <Input type="number" min="0" value={form.extraBedCount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, extraBedCount: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">ราคารวม (บาท)</label>
+              <Input type="number" value={form.totalAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, totalAmount: e.target.value })} placeholder="0" />
+            </div>
+            <Button onClick={handleCreate} className="w-full">บันทึก</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Check-In Dialog */}
-      <Dialog 
-        open={confirmDialog.isOpen && confirmDialog.type === 'checkin'} 
-        onOpenChange={(open) => !open && setConfirmDialog({ isOpen: false, type: null, bookingId: null })}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>ยืนยันการเช็คอิน</DialogTitle>
-          </DialogHeader>
-          <p className="text-gray-600">คุณแน่ใจหรือไม่ว่าต้องการเช็คอินการจองนี้?</p>
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setConfirmDialog({ isOpen: false, type: null, bookingId: null })}
-              className="flex-1"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={handleConfirmCheckIn}
-              className="flex-1"
-            >
-              ยืนยัน
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Check-Out Dialog */}
-      <Dialog 
-        open={confirmDialog.isOpen && confirmDialog.type === 'checkout'} 
-        onOpenChange={(open) => !open && setConfirmDialog({ isOpen: false, type: null, bookingId: null })}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>ยืนยันการเช็คเอาท์</DialogTitle>
-          </DialogHeader>
-          <p className="text-gray-600">คุณแน่ใจหรือไม่ว่าต้องการเช็คเอาท์การจองนี้?</p>
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setConfirmDialog({ isOpen: false, type: null, bookingId: null })}
-              className="flex-1"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmCheckOut}
-              className="flex-1"
-            >
-              ยืนยัน
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        isOpen={confirmDelete.open}
+        title="ยืนยันการลบ"
+        description="คุณต้องการลบรายการจองนี้หรือไม่?"
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        isDangerous
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null })}
+      />
     </div>
   );
 };
+
+export default DailyRental;

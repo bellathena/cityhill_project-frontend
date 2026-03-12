@@ -1,37 +1,49 @@
-// Enums matching Prisma schema
-export type RoomStatus = "AVAILABLE" | "OCCUPIED_M" | "OCCUPIED_D" | "RESERVED" | "MAINTENANCE";
+// Enums matching backend Prisma schema
+export type UserRole = "ADMIN" | "STAFF";
 export type AllowedType = "MONTHLY" | "DAILY" | "FLEXIBLE";
-export type BookingStatus = "CONFIRMED" | "STAYED" | "CANCELLED" | "CHECKED_OUT";
+export type RoomStatus = "AVAILABLE" | "OCCUPIED_M" | "OCCUPIED_D" | "RESERVED" | "MAINTENANCE";
+export type BookingStatus = "PENDING" | "STAYED" | "CANCELLED" | "CHECKED_OUT";
 export type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
-export type ContractStatus = "ACTIVE" | "NOTICE" | "CLOSED";
+export type ContractStatus = "PENDING" | "ACTIVE" | "NOTICE" | "CLOSED";
+export type PaymentMethod = "CASH" | "TRANSFER" | "CREDIT_CARD";
+export type RefundStatus = "PENDING" | "REFUNDED";
 
-// Room Type
+export interface SystemUser {
+  id: number;
+  username: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RoomTypeData {
   id: number;
   typeName: string;
   description?: string;
   baseMonthlyRate: number;
   baseDailyRate: number;
+  rooms?: RoomData[];
   createdAt: string;
   updatedAt: string;
 }
 
-// Room
-export interface Room {
-  id: number;
-  roomNumber: string;
+// Room uses roomNumber (Int) as primary key
+export interface RoomData {
+  roomNumber: number;
   floor: number;
   typeId: number;
-  roomType?: RoomTypeData;
   allowedType: AllowedType;
   currentStatus: RoomStatus;
   latestMeterElectric?: number;
   latestMeterWater?: number;
+  roomType?: RoomTypeData;
   createdAt: string;
   updatedAt: string;
 }
 
-// Customer
 export interface Customer {
   id: number;
   fullName: string;
@@ -44,13 +56,10 @@ export interface Customer {
   updatedAt: string;
 }
 
-// Daily Booking
 export interface DailyBooking {
   id: number;
   customerId: number;
-  customer?: Customer;
   roomId: number;
-  room?: Room;
   checkInDate: string;
   checkOutDate: string;
   numGuests?: number;
@@ -58,17 +67,16 @@ export interface DailyBooking {
   totalAmount: number;
   bookingStatus: BookingStatus;
   paymentStatus: PaymentStatus;
+  customer?: Customer;
+  room?: RoomData;
   createdAt: string;
   updatedAt: string;
 }
 
-// Monthly Contract
 export interface MonthlyContract {
   id: number;
   customerId: number;
-  customer?: Customer;
   roomId: number;
-  room?: Room;
   startDate: string;
   endDate?: string;
   depositAmount: number;
@@ -76,18 +84,71 @@ export interface MonthlyContract {
   monthlyRentRate: number;
   contractStatus: ContractStatus;
   contractFile?: string;
+  customer?: Customer;
+  room?: RoomData;
+  invoices?: InvoiceData[];
+  moveOutSettlement?: MoveOutSettlementData;
   createdAt: string;
   updatedAt: string;
 }
 
-// User Types
-export interface SystemUser {
+export interface InvoiceData {
   id: number;
-  username: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: "STAFF" | "ADMIN";
+  monthlyContractId?: number;
+  invoiceDate: string;
+  dueDate: string;
+  grandTotal: number;
+  paymentStatus: PaymentStatus;
+  monthlyContract?: MonthlyContract;
+  payments?: PaymentData[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentData {
+  id: number;
+  invoiceId: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  amountPaid: number;
+  slipImage?: string;
+  invoice?: InvoiceData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MoveOutSettlementData {
+  id: number;
+  contractId: number;
+  moveOutDate: string;
+  totalDeposit: number;
+  damageDeduction?: number;
+  cleaningFee?: number;
+  outstandingBalance?: number;
+  netRefund: number;
+  refundStatus: RefundStatus;
+  contract?: MonthlyContract;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UtilityType {
+  id: number;
+  uType: string;
+  ratePerUnit: number;
+  usages?: UtilityUsageData[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UtilityUsageData {
+  id: number;
+  roomId: number;
+  recordDate: string;
+  utilityUnit: number;
+  uTypeId: number;
+  room?: RoomData;
+  utilityType?: UtilityType;
   createdAt: string;
   updatedAt: string;
 }

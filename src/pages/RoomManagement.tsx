@@ -15,24 +15,17 @@ interface RoomType {
   description?: string;
   baseMonthlyRate: number;
   baseDailyRate: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 interface Room {
-  id: number;
-  roomNumber: string;
-  floor: string | number;
+  roomNumber: number;
+  floor: number;
   typeId: number;
   allowedType: AllowedType;
   currentStatus: RoomStatus;
   latestMeterElectric: number | null;
   latestMeterWater: number | null;
-  createdAt: string;
-  updatedAt: string;
-  roomType: RoomType;
-  dailyBookings?: any[];
-  monthlyContracts?: any[];
+  roomType?: RoomType;
 }
 
 const statusColors: Record<RoomStatus, string> = {
@@ -65,16 +58,14 @@ export const RoomManagement: React.FC = () => {
     roomNumber: '',
     floor: '',
     typeId: '',
+    allowedType: 'FLEXIBLE' as AllowedType,
     currentStatus: 'AVAILABLE' as RoomStatus,
-    pricePerDay: '',
-    pricePerMonth: '',
   });
   const [confirmData, setConfirmData] = useState<{
     isOpen: boolean;
-    roomId: number | null;
-  }>({ isOpen: false, roomId: null });
+    roomNumber: number | null;
+  }>({ isOpen: false, roomNumber: null });
 
-  // Fetch rooms and room types on mount
   useEffect(() => {
     fetchRooms();
     fetchRoomTypes();
@@ -85,8 +76,7 @@ export const RoomManagement: React.FC = () => {
       setIsLoading(true);
       const { data } = await api.get('/rooms');
       setRooms(data);
-    } catch (error) {
-      console.error('Error fetching rooms:', error);
+    } catch {
       addToast('เกิดข้อผิดพลาดในการโหลดข้อมูลห้อง', 'error');
     } finally {
       setIsLoading(false);
@@ -97,21 +87,14 @@ export const RoomManagement: React.FC = () => {
     try {
       const { data } = await api.get('/room-types');
       setRoomTypes(data);
-    } catch (error) {
-      console.error('Error fetching room types:', error);
+    } catch {
+      console.error('Error fetching room types');
     }
   };
 
   const handleAdd = () => {
     setIsAddMode(true);
-    setFormData({
-      roomNumber: '',
-      floor: '',
-      typeId: '',
-      currentStatus: 'AVAILABLE',
-      pricePerDay: '',
-      pricePerMonth: '',
-    });
+    setFormData({ roomNumber: '', floor: '', typeId: '', allowedType: 'FLEXIBLE', currentStatus: 'AVAILABLE' });
     setIsDialogOpen(true);
   };
 
@@ -119,12 +102,11 @@ export const RoomManagement: React.FC = () => {
     setIsAddMode(false);
     setSelectedRoom(room);
     setFormData({
-      roomNumber: room.roomNumber,
+      roomNumber: room.roomNumber.toString(),
       floor: room.floor.toString(),
       typeId: room.typeId.toString(),
+      allowedType: room.allowedType,
       currentStatus: room.currentStatus,
-      pricePerDay: room.roomType.baseDailyRate.toString(),
-      pricePerMonth: room.roomType.baseMonthlyRate.toString(),
     });
     setIsDialogOpen(true);
   };
@@ -132,69 +114,52 @@ export const RoomManagement: React.FC = () => {
   const handleSave = async () => {
     try {
       if (isAddMode) {
-        const newRoom = {
-          roomNumber: formData.roomNumber,
-          floor: formData.floor,
+        await api.post('/rooms', {
+          roomNumber: parseInt(formData.roomNumber),
+          floor: parseInt(formData.floor),
           typeId: parseInt(formData.typeId),
+          allowedType: formData.allowedType,
           currentStatus: formData.currentStatus,
-          pricePerDay: formData.pricePerDay,
-          pricePerMonth: formData.pricePerMonth,
-        };
-
-        await api.post('/rooms', newRoom);
+        });
         addToast('เพิ่มห้องสำเร็จ', 'success');
-        setIsDialogOpen(false);
-        fetchRooms();
       } else if (selectedRoom) {
-        const updatedRoom = {
-          roomNumber: formData.roomNumber,
-          floor: formData.floor,
+        await api.put(`/rooms/${selectedRoom.roomNumber}`, {
+          floor: parseInt(formData.floor),
           typeId: parseInt(formData.typeId),
+          allowedType: formData.allowedType,
           currentStatus: formData.currentStatus,
-          pricePerDay: formData.pricePerDay,
-          pricePerMonth: formData.pricePerMonth,
-        };
-
-        await api.put(`/rooms/${selectedRoom.id}`, updatedRoom);
+        });
         addToast('อัปเดตห้องสำเร็จ', 'success');
-        setIsDialogOpen(false);
-        fetchRooms();
       }
-    } catch (error) {
-      console.error('Error saving room:', error);
-      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูลห้อง', 'error');
+      setIsDialogOpen(false);
+      fetchRooms();
+    } catch (err: any) {
+      addToast(err.response?.data?.error || 'เกิดข้อผิดพลาด', 'error');
     }
   };
 
-  const handleDelete = async (roomId: number) => {
-    setConfirmData({ isOpen: true, roomId });
-  };
-
   const handleConfirmDelete = async () => {
-    if (confirmData.roomId) {
+    if (confirmData.roomNumber !== null) {
       try {
-        console.log('Deleting room with ID:', confirmData.roomId);
-        await api.delete(`/rooms/${confirmData.roomId}`);
+        await api.delete(`/rooms/${confirmData.roomNumber}`);
         addToast('ลบห้องสำเร็จ', 'success');
         fetchRooms();
-      } catch (error) {
-        console.error('Error deleting room:', error);
-        addToast('เกิดข้อผิดพลาดในการลบห้อง', 'error');
+      } catch (err: any) {
+        addToast(err.response?.data?.error || 'เกิดข้อผิดพลาดในการลบห้อง', 'error');
       } finally {
-        setConfirmData({ isOpen: false, roomId: null });
+        setConfirmData({ isOpen: false, roomNumber: null });
       }
     }
   };
 
   const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = room.roomNumber.includes(searchTerm);
+    const matchesSearch = room.roomNumber.toString().includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || room.currentStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Group rooms by floor
   const roomsByFloor = filteredRooms.reduce((acc, room) => {
-    const floorNum = typeof room.floor === 'string' ? room.floor : room.floor.toString();
+    const floorNum = room.floor.toString();
     if (!acc[floorNum]) acc[floorNum] = [];
     acc[floorNum].push(room);
     return acc;
@@ -202,29 +167,18 @@ export const RoomManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">จัดการห้องพัก</h1>
         <Button onClick={handleAdd} className="flex items-center gap-2" disabled={isLoading}>
-          <Plus size={20} />
-          เพิ่มห้องพัก
+          <Plus size={20} /> เพิ่มห้องพัก
         </Button>
       </div>
 
-      {/* Search and Filter */}
       <div className="flex gap-4">
         <div className="flex-1">
-          <Input
-            placeholder="ค้นหาเลขห้อง..."
-            value={searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="ค้นหาเลขห้อง..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="all">สถานะทั้งหมด</option>
           <option value="AVAILABLE">ว่าง</option>
           <option value="OCCUPIED_M">รายเดือน</option>
@@ -238,27 +192,22 @@ export const RoomManagement: React.FC = () => {
         <div className="text-center py-12 text-gray-500">กำลังโหลดห้องพัก...</div>
       ) : (
         <>
-          {/* Rooms by Floor */}
           <div className="space-y-12">
             {Object.entries(roomsByFloor)
-              .sort(([floorA], [floorB]) => {
-                const numA = parseInt(floorA) || 0;
-                const numB = parseInt(floorB) || 0;
-                return numB - numA;
-              })
+              .sort(([a], [b]) => (parseInt(b) || 0) - (parseInt(a) || 0))
               .map(([floor, floorRooms]) => (
                 <div key={floor}>
                   <h2 className="text-xl font-semibold mb-6 text-gray-800">ชั้น {floor}</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                     {floorRooms.map((room) => (
                       <button
-                        key={room.id}
+                        key={room.roomNumber}
                         onClick={() => handleEdit(room)}
                         className={`p-4 rounded-xl text-white font-semibold transition-all hover:scale-105 hover:shadow-lg active:scale-95 ${statusColors[room.currentStatus]}`}
                       >
                         <div className="text-2xl font-bold mb-2">{room.roomNumber}</div>
                         <div className="text-xs leading-tight">
-                          <div>{room.roomType.typeName}</div>
+                          <div>{room.roomType?.typeName}</div>
                           <div>{statusLabels[room.currentStatus]}</div>
                         </div>
                       </button>
@@ -266,65 +215,43 @@ export const RoomManagement: React.FC = () => {
                   </div>
                 </div>
               ))}
-
             {filteredRooms.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                ไม่พบห้องพัก คลิกปุ่ม "เพิ่มห้องพัก" เพื่อเริ่มต้น
-              </div>
+              <div className="text-center py-12 text-gray-500">ไม่พบห้องพัก</div>
             )}
           </div>
 
-          {/* Add/Edit Dialog */}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>
-                  {isAddMode ? 'เพิ่มห้องพัก' : 'แก้ไขห้องพัก'}
-                </DialogTitle>
+                <DialogTitle>{isAddMode ? 'เพิ่มห้องพัก' : 'แก้ไขห้องพัก'}</DialogTitle>
               </DialogHeader>
-
               <div className="space-y-4 py-4">
                 <div>
                   <label className="text-sm font-medium">เลขห้อง</label>
-                  <Input
-                    value={formData.roomNumber}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, roomNumber: e.target.value })}
-                    placeholder="เช่น 101, 201"
-                  />
+                  <Input type="number" value={formData.roomNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, roomNumber: e.target.value })} placeholder="เช่น 101" disabled={!isAddMode} />
                 </div>
-
                 <div>
                   <label className="text-sm font-medium">ชั้น</label>
-                  <Input
-                    value={formData.floor}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, floor: e.target.value })}
-                    placeholder="เช่น 1, 2"
-                  />
+                  <Input type="number" value={formData.floor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, floor: e.target.value })} placeholder="เช่น 1" />
                 </div>
-
                 <div>
                   <label className="text-sm font-medium">ประเภทห้อง</label>
-                  <select
-                    value={formData.typeId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, typeId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
+                  <select value={formData.typeId} onChange={(e) => setFormData({ ...formData, typeId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">เลือกประเภทห้อง</option>
-                    {roomTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.typeName}
-                      </option>
-                    ))}
+                    {roomTypes.map((type) => (<option key={type.id} value={type.id}>{type.typeName}</option>))}
                   </select>
                 </div>
-
+                <div>
+                  <label className="text-sm font-medium">ประเภทการเช่า</label>
+                  <select value={formData.allowedType} onChange={(e) => setFormData({ ...formData, allowedType: e.target.value as AllowedType })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="FLEXIBLE">ทั้งสองแบบ</option>
+                    <option value="MONTHLY">รายเดือนเท่านั้น</option>
+                    <option value="DAILY">รายวันเท่านั้น</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-sm font-medium">สถานะห้อง</label>
-                  <select
-                    value={formData.currentStatus}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, currentStatus: e.target.value as RoomStatus })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
+                  <select value={formData.currentStatus} onChange={(e) => setFormData({ ...formData, currentStatus: e.target.value as RoomStatus })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="AVAILABLE">ว่าง</option>
                     <option value="OCCUPIED_M">รายเดือน</option>
                     <option value="OCCUPIED_D">รายวัน</option>
@@ -332,43 +259,11 @@ export const RoomManagement: React.FC = () => {
                     <option value="MAINTENANCE">ซ่อม</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="text-sm font-medium">ราคารายวัน (บาท)</label>
-                  <Input
-                    type="number"
-                    value={formData.pricePerDay}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, pricePerDay: e.target.value })}
-                    placeholder="กรอกราคารายวัน"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">ราคารายเดือน (บาท)</label>
-                  <Input
-                    type="number"
-                    value={formData.pricePerMonth}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, pricePerMonth: e.target.value })}
-                    placeholder="กรอกราคารายเดือน"
-                  />
-                </div>
-
                 <div className="flex gap-3">
-                  <Button onClick={handleSave} className="flex-1">
-                    บันทึก
-                  </Button>
+                  <Button onClick={handleSave} className="flex-1">บันทึก</Button>
                   {!isAddMode && (
-                    <Button
-                      onClick={() => {
-                        if (selectedRoom) {
-                          handleDelete(selectedRoom.id);
-                          setIsDialogOpen(false);
-                        }
-                      }}
-                      className="flex-1 bg-red-600 hover:bg-red-700"
-                    >
-                      <Trash2 size={16} className="mr-2" />
-                      ลบ
+                    <Button onClick={() => { if (selectedRoom) { setConfirmData({ isOpen: true, roomNumber: selectedRoom.roomNumber }); setIsDialogOpen(false); } }} className="flex-1 bg-red-600 hover:bg-red-700">
+                      <Trash2 size={16} className="mr-2" /> ลบ
                     </Button>
                   )}
                 </div>
@@ -376,16 +271,15 @@ export const RoomManagement: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Confirm Delete Dialog */}
           <ConfirmDialog
             isOpen={confirmData.isOpen}
             title="ยืนยันการลบห้อง"
-            description="คุณต้องการลบห้องนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+            description="คุณต้องการลบห้องนี้หรือไม่?"
             confirmText="ลบ"
             cancelText="ยกเลิก"
-            isDangerous={true}
+            isDangerous
             onConfirm={handleConfirmDelete}
-            onCancel={() => setConfirmData({ isOpen: false, roomId: null })}
+            onCancel={() => setConfirmData({ isOpen: false, roomNumber: null })}
           />
         </>
       )}

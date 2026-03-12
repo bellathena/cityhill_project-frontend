@@ -135,6 +135,10 @@ const ContractDetail = () => {
       label: "รอดำเนินการ",
       style: "bg-amber-50 text-amber-700 border-amber-200",
     },
+    NOTICE: {
+      label: "แจ้งย้ายออก",
+      style: "bg-orange-50 text-orange-700 border-orange-200",
+    },
     CLOSED: {
       label: "หมดสัญญาแล้ว",
       style: "bg-slate-50 text-slate-700 border-slate-200",

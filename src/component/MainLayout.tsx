@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Outlet, Link, useNavigate, useLocation } from "react-router";
+import { Outlet, Link, useLocation } from "react-router";
 import {
   Home,
-  LogOut as LogOutIcon,
   FileText,
   Users,
   Menu,
@@ -15,6 +14,8 @@ import {
   Droplets,
   ChevronDown,
   Database,
+  UserCog,
+  DoorOpen,
 } from "lucide-react";
 
 interface MenuItem {
@@ -27,13 +28,14 @@ export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [dataGroupOpen, setDataGroupOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
 
-  // Mock data
+  const storedUser = (() => {
+    try { const u = localStorage.getItem('currentUser'); return u ? JSON.parse(u) : null; } catch { return null; }
+  })();
   const currentUser = {
-    name: "ธนพร จินดารัตน์",
-    role: "Admin",
+    name: storedUser?.fullName || 'ผู้ใช้',
+    role: storedUser?.role || 'STAFF',
   };
 
   // Handle responsive design
@@ -53,11 +55,6 @@ export default function MainLayout() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/');
-  };
-
   const topMenuItems: MenuItem[] = [
     { icon: BarChart3, label: "หน้าหลัก", path: "/" },
   ];
@@ -75,6 +72,8 @@ export default function MainLayout() {
     { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
     { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
     { icon: Receipt, label: "ออกบิล", path: "/billing" },
+    { icon: DoorOpen, label: "จัดการการย้ายออก", path: "/move-out-settlements" },
+    // { icon: UserCog, label: "จัดการผู้ใช้งาน", path: "/users" },
     ...dataMenuItems,
   ];
 
@@ -207,6 +206,8 @@ export default function MainLayout() {
             { icon: FileText, label: "จัดการสัญญา", path: "/contracts" },
             { icon: ClipboardList, label: "จัดการการใช้สาธารณูปโภค", path: "/utility-usage" },
             { icon: Receipt, label: "ออกบิล", path: "/billing" },
+            { icon: DoorOpen, label: "จัดการการย้ายออก", path: "/move-out-settlements" },
+            // { icon: UserCog, label: "จัดการผู้ใช้งาน", path: "/users" },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -275,27 +276,11 @@ export default function MainLayout() {
             <div className="flex items-center gap-3">
               {/* User Avatar & Info */}
               <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white font-bold shadow-md">
-                  {currentUser.name.charAt(0)}
-                </div>
-                <div className="text-right hidden sm:block">
-                  <p className="font-semibold text-gray-800 text-sm">
-                    {currentUser.name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {currentUser.role === "Admin" ? "ผู้ดูแลระบบ" : "พนักงาน"}
-                  </p>
-                </div>
+           
+                
               </div>
 
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
-              >
-                <LogOutIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">ออกจากระบบ</span>
-              </button>
+
             </div>
           </div>
         </header>
