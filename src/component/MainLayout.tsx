@@ -263,14 +263,7 @@ export default function MainLayout() {
                   <Menu className="w-6 h-6 text-gray-600" />
                 )}
               </button>
-
-              {/* Page Title */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">
-                  {menuItems.find((item) => item.path === location.pathname)
-                    ?.label || "แผงควบคุม"}
-                </h2>
-              </div>
+              
             </div>
 
             <div className="flex items-center gap-3">

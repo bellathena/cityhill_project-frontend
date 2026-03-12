@@ -4,7 +4,8 @@ import { Plus, Eye, Trash2, Search, X } from 'lucide-react';
 import { Button } from '../../component/ui/button';
 import { Input } from '../../component/ui/input';
 import { Select } from '../../component/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../../component/dialog';
+import { ConfirmDialog } from '../../component/dialog';
+import { CreateBookingDialog } from '../../component/CreateBookingDialog';
 import api from '../../lib/axios';
 import { useToast } from '../../context/ToastContext';
 
@@ -62,9 +63,44 @@ export const DailyRental: React.FC = () => {
     numGuests: '1',
     extraBedCount: '0',
     totalAmount: '',
+    paymentStatus: 'PAID',
+    amountPaid: '',
   });
 
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
   useEffect(() => { fetchData(); }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowCustomerDropdown(false);
+    if (showCustomerDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showCustomerDropdown]);
+
+  // Auto-calculate totalAmount based on room rate and nights
+  useEffect(() => {
+    if (form.roomId && form.checkInDate && form.checkOutDate) {
+      const room = rooms.find((r) => r.roomNumber === Number(form.roomId));
+      const rate = room?.roomType?.baseDailyRate ?? 0;
+      const nights = calcNights(form.checkInDate, form.checkOutDate) || 1;
+      const extraBeds = Number(form.extraBedCount) || 0;
+      const total = (rate + (extraBeds * 200)) * nights;
+      setForm((f) => ({ ...f, totalAmount: String(total) }));
+    }
+  }, [form.checkInDate, form.checkOutDate, form.roomId, form.extraBedCount, rooms]);
+
+  // Auto-calculate amountPaid when paymentStatus is PAID
+  useEffect(() => {
+    if (form.paymentStatus === 'PAID' && form.totalAmount) {
+      setForm((f) => ({ ...f, amountPaid: f.totalAmount }));
+    } else if (form.paymentStatus === 'PENDING') {
+      setForm((f) => ({ ...f, amountPaid: '0' }));
+    }
+  }, [form.paymentStatus, form.totalAmount]);
 
   const fetchData = async () => {
     try {
@@ -93,13 +129,20 @@ export const DailyRental: React.FC = () => {
   );
 
   const handleRoomChange = (roomNumber: string) => {
-    const room = rooms.find((r) => r.roomNumber === Number(roomNumber));
-    const rate = room?.roomType?.baseDailyRate ?? 0;
-    setForm((f) => {
-      const nights = calcNights(f.checkInDate, f.checkOutDate);
-      return { ...f, roomId: roomNumber, totalAmount: nights > 0 ? String(rate * nights) : String(rate) };
-    });
+    setForm((f) => ({ ...f, roomId: roomNumber }));
   };
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setForm((f) => ({ ...f, customerId: String(customer.id) }));
+    setCustomerSearch(customer.fullName);
+    setShowCustomerDropdown(false);
+  };
+
+  const filteredCustomers = customers
+    .filter((c) => c.fullName.toLowerCase().includes(customerSearch.toLowerCase()))
+    .slice(0, 10);
+
+  const selectedCustomer = customers.find((c) => c.id === Number(form.customerId));
 
   const calcNights = (cin: string, cout: string) => {
     if (!cin || !cout) return 0;
@@ -123,6 +166,8 @@ export const DailyRental: React.FC = () => {
         numGuests: Number(form.numGuests) || 1,
         extraBedCount: Number(form.extraBedCount) || 0,
         totalAmount: parseFloat(form.totalAmount) || 0,
+        paymentStatus: form.paymentStatus,
+        amountPaid: parseFloat(form.amountPaid) || 0,
       });
       addToast('สร้างการจองสำเร็จ', 'success');
       setIsCreateOpen(false);
@@ -162,6 +207,10 @@ export const DailyRental: React.FC = () => {
     return true;
   });
 
+  // Separate bookings by status
+  const stayedBookings = filteredBookings.filter((bk) => bk.bookingStatus === 'STAYED');
+  const checkedOutBookings = filteredBookings.filter((bk) => bk.bookingStatus === 'CHECKED_OUT');
+
   const clearFilters = () => { setSearchText(''); setFilterMonth(''); setFilterYear(''); setFilterStatus(''); };
   const hasFilter = searchText || filterMonth || filterYear || filterStatus;
 
@@ -170,10 +219,8 @@ export const DailyRental: React.FC = () => {
 
   const statusBadge = (status: string) => {
     const map: Record<string, { class: string; label: string }> = {
-      PENDING: { class: 'bg-amber-100 text-amber-700', label: 'รอเข้าพัก' },
       STAYED: { class: 'bg-blue-100 text-blue-700', label: 'เข้าพักแล้ว' },
       CHECKED_OUT: { class: 'bg-slate-100 text-slate-700', label: 'เช็คเอาท์แล้ว' },
-      CANCELLED: { class: 'bg-red-100 text-red-700', label: 'ยกเลิก' },
     };
     const s = map[status] || { class: 'bg-gray-100 text-gray-700', label: status };
     return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
@@ -188,12 +235,68 @@ export const DailyRental: React.FC = () => {
     return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
 
+  const renderBookingTable = (bookingsList: DailyBooking[], title: string, emptyMessage: string) => (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="px-5 py-3 border-b bg-gray-50">
+        <h3 className="font-semibold text-gray-700">{title} ({bookingsList.length} รายการ)</h3>
+      </div>
+      {bookingsList.length === 0 ? (
+        <div className="py-12 text-center text-gray-400">{emptyMessage}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">ห้อง</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">ผู้เข้าพัก</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คอิน</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คเอาท์</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-700">ราคารวม</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">สถานะการเข้าพัก</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">การชำระ</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-700">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {bookingsList.map((bk) => {
+                const room = bk.room || getRoom(bk.roomId);
+                const customer = bk.customer || getCustomer(bk.customerId);
+                return (
+                  <tr key={bk.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{room?.roomNumber ?? bk.roomId}</td>
+                    <td className="px-4 py-3">{customer?.fullName ?? '-'}</td>
+                    <td className="px-4 py-3">{formatDate(bk.checkInDate)}</td>
+                    <td className="px-4 py-3">{formatDate(bk.checkOutDate)}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{fmt(bk.totalAmount)}</td>
+                    <td className="px-4 py-3 text-center">{statusBadge(bk.bookingStatus)}</td>
+                    <td className="px-4 py-3 text-center">{paymentBadge(bk.paymentStatus)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => navigate(`/daily-rental/${bk.id}`)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600"><Eye size={16} /></button>
+                        <button onClick={() => setConfirmDelete({ open: true, id: bk.id })} className="p-2 hover:bg-red-100 rounded-lg text-red-600"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">จัดการเช่ารายวัน</h1>
-        <Button onClick={() => { setForm({ customerId: '', roomId: '', checkInDate: new Date().toISOString().split('T')[0], checkOutDate: '', numGuests: '1', extraBedCount: '0', totalAmount: '' }); setIsCreateOpen(true); }} className="flex items-center gap-2">
-          <Plus size={16} /> สร้างการจอง
+        <Button onClick={() => { 
+          setForm({ customerId: '', roomId: '', checkInDate: new Date().toISOString().split('T')[0], checkOutDate: '', numGuests: '1', extraBedCount: '0', totalAmount: '', paymentStatus: 'PAID', amountPaid: '' }); 
+          setCustomerSearch(''); 
+          setShowCustomerDropdown(false); 
+          setIsCreateOpen(true); 
+        }} className="flex items-center gap-2">
+          <Plus size={16} /> สร้างการพักรายวัน
         </Button>
       </div>
 
@@ -224,10 +327,8 @@ export const DailyRental: React.FC = () => {
         <div className="min-w-[140px]">
           <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">ทุกสถานะ</option>
-            <option value="PENDING">รอเข้าพัก</option>
             <option value="STAYED">เข้าพักแล้ว</option>
             <option value="CHECKED_OUT">เช็คเอาท์แล้ว</option>
-            <option value="CANCELLED">ยกเลิก</option>
           </Select>
         </div>
         {hasFilter && (
@@ -237,103 +338,43 @@ export const DailyRental: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        {loading ? (
-          <div className="py-12 text-center text-gray-400">กำลังโหลด...</div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="py-12 text-center text-gray-400">{hasFilter ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ไม่มีรายการเช่ารายวัน'}</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ห้อง</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ผู้เข้าพัก</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คอิน</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คเอาท์</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-700">ราคารวม</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">สถานะจอง</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">การชำระ</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredBookings.map((bk) => {
-                const room = bk.room || getRoom(bk.roomId);
-                const customer = bk.customer || getCustomer(bk.customerId);
-                return (
-                  <tr key={bk.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{room?.roomNumber ?? bk.roomId}</td>
-                    <td className="px-4 py-3">{customer?.fullName ?? '-'}</td>
-                    <td className="px-4 py-3">{formatDate(bk.checkInDate)}</td>
-                    <td className="px-4 py-3">{formatDate(bk.checkOutDate)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">{fmt(bk.totalAmount)}</td>
-                    <td className="px-4 py-3 text-center">{statusBadge(bk.bookingStatus)}</td>
-                    <td className="px-4 py-3 text-center">{paymentBadge(bk.paymentStatus)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center gap-1">
-                        <button onClick={() => navigate(`/daily-rental/${bk.id}`)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600"><Eye size={16} /></button>
-                        <button onClick={() => setConfirmDelete({ open: true, id: bk.id })} className="p-2 hover:bg-red-100 rounded-lg text-red-600"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {loading ? (
+        <div className="bg-white rounded-lg shadow py-12 text-center text-gray-400">กำลังโหลด...</div>
+      ) : (
+        <div className="space-y-6">
+          {/* ตารางผู้เข้าพัก */}
+          {renderBookingTable(
+            stayedBookings,
+            'ผู้เข้าพักปัจจุบัน',
+            hasFilter ? 'ไม่พบรายการผู้เข้าพักที่ตรงกับเงื่อนไข' : 'ไม่มีผู้เข้าพักในขณะนี้'
+          )}
+          
+          {/* ตารางผู้เช็คเอาท์ */}
+          {renderBookingTable(
+            checkedOutBookings,
+            'ประวัติการเช็คเอาท์',
+            hasFilter ? 'ไม่พบประวัติการเช็คเอาท์ที่ตรงกับเงื่อนไข' : 'ไม่มีประวัติการเช็คเอาท์'
+          )}
+        </div>
+      )}
 
       {/* Create Booking Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>สร้างการจองรายวัน</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium">ลูกค้า *</label>
-              <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">เลือกลูกค้า</option>
-                {customers.map((c) => (<option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">ห้องพัก *</label>
-              <select value={form.roomId} onChange={(e) => handleRoomChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">เลือกห้องว่าง</option>
-                {availableRooms.map((r) => (
-                  <option key={r.roomNumber} value={r.roomNumber}>
-                    ห้อง {r.roomNumber} - {r.roomType?.typeName} ({r.roomType?.baseDailyRate?.toLocaleString()} บาท/คืน)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">เช็คอิน *</label>
-                <Input type="date" value={form.checkInDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, checkInDate: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">เช็คเอาท์ *</label>
-                <Input type="date" value={form.checkOutDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, checkOutDate: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">จำนวนผู้เข้าพัก</label>
-                <Input type="number" min="1" value={form.numGuests} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, numGuests: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">เตียงเสริม</label>
-                <Input type="number" min="0" value={form.extraBedCount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, extraBedCount: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">ราคารวม (บาท)</label>
-              <Input type="number" value={form.totalAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, totalAmount: e.target.value })} placeholder="0" />
-            </div>
-            <Button onClick={handleCreate} className="w-full">บันทึก</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CreateBookingDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        form={form}
+        setForm={setForm}
+        customers={customers}
+        availableRooms={availableRooms}
+        customerSearch={customerSearch}
+        setCustomerSearch={setCustomerSearch}
+        showCustomerDropdown={showCustomerDropdown}
+        setShowCustomerDropdown={setShowCustomerDropdown}
+        filteredCustomers={filteredCustomers}
+        handleCustomerSelect={handleCustomerSelect}
+        handleRoomChange={handleRoomChange}
+        handleCreate={handleCreate}
+      />
 
       <ConfirmDialog
         isOpen={confirmDelete.open}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Grid3x3 } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../component/dialog';
@@ -34,6 +34,14 @@ export const RoomTypes: React.FC = () => {
     isOpen: boolean;
     typeId: number | null;
   }>({ isOpen: false, typeId: null });
+
+  const totalTypes = roomTypes.length;
+  const avgDailyRate = totalTypes > 0
+    ? roomTypes.reduce((sum, t) => sum + Number(t.baseDailyRate || 0), 0) / totalTypes
+    : 0;
+  const avgMonthlyRate = totalTypes > 0
+    ? roomTypes.reduce((sum, t) => sum + Number(t.baseMonthlyRate || 0), 0) / totalTypes
+    : 0;
 
   // Fetch room types data when component mounts
   useEffect(() => {
@@ -129,16 +137,42 @@ export const RoomTypes: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">จัดการประเภทห้องพัก</h1>
-        <Button onClick={handleAdd} className="flex items-center gap-2" disabled={isLoading}>
-          <Plus size={20} />
-          เพิ่มประเภทห้อง
-        </Button>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Grid3x3 size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการประเภทห้องพัก</h1>
+              <p className="text-sm text-gray-500">กำหนดเรทราคาและรายละเอียดประเภทห้อง</p>
+            </div>
+          </div>
+
+          <Button onClick={handleAdd} className="flex items-center gap-2" disabled={isLoading}>
+            <Plus size={18} />
+            เพิ่มประเภทห้อง
+          </Button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-xl bg-white/80 border border-gray-100 p-4">
+            <p className="text-xs text-gray-500">จำนวนประเภทห้อง</p>
+            <p className="text-2xl font-bold text-gray-800 mt-1">{totalTypes}</p>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-gray-100 p-4">
+            <p className="text-xs text-gray-500">ค่าเช่ารายวันเฉลี่ย</p>
+            <p className="text-2xl font-bold text-sky-700 mt-1">{Math.round(avgDailyRate).toLocaleString()} บาท</p>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-gray-100 p-4">
+            <p className="text-xs text-gray-500">ค่าเช่ารายเดือนเฉลี่ย</p>
+            <p className="text-2xl font-bold text-emerald-700 mt-1">{Math.round(avgMonthlyRate).toLocaleString()} บาท</p>
+          </div>
+        </div>
       </div>
 
       {isLoading && (
-        <div className="text-center py-12 text-gray-500">
+        <div className="bg-white rounded-xl border border-gray-100 text-center py-12 text-gray-500">
           กำลังโหลดข้อมูล...
         </div>
       )}
@@ -147,19 +181,22 @@ export const RoomTypes: React.FC = () => {
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {roomTypes.map((type: RoomType) => (
-            <div key={type.id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold">{type.typeName}</h3>
+            <div key={type.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">{type.typeName}</h3>
+                  <p className="text-xs text-gray-400 mt-1">ประเภทห้อง #{type.id}</p>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleEdit(type)}
-                    className="p-1 hover:bg-gray-100 rounded"
+                    className="p-2 hover:bg-sky-50 rounded-lg border border-transparent hover:border-sky-100"
                   >
-                    <Edit2 size={16} className="text-gray-600" />
+                    <Edit2 size={16} className="text-sky-700" />
                   </button>
                   <button
                     onClick={() => handleDelete(type.id)}
-                    className="p-1 hover:bg-gray-100 rounded"
+                    className="p-2 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100"
                   >
                     <Trash2 size={16} className="text-red-600" />
                   </button>
@@ -167,19 +204,19 @@ export const RoomTypes: React.FC = () => {
               </div>
 
               {type.description && (
-                <p className="text-sm text-gray-600 mb-4">{type.description}</p>
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{type.description}</p>
               )}
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-                  <span className="text-sm font-medium">ค่าเช่ารายวัน</span>
-                  <span className="text-lg font-semibold text-blue-600">
+                <div className="flex justify-between items-center p-3 bg-sky-50 rounded-xl border border-sky-100">
+                  <span className="text-sm font-medium text-gray-700">ค่าเช่ารายวัน</span>
+                  <span className="text-lg font-semibold text-sky-700">
                     {type.baseDailyRate.toLocaleString()} บาท
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                  <span className="text-sm font-medium">ค่าเช่ารายเดือน</span>
-                  <span className="text-lg font-semibold text-green-600">
+                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <span className="text-sm font-medium text-gray-700">ค่าเช่ารายเดือน</span>
+                  <span className="text-lg font-semibold text-emerald-700">
                     {type.baseMonthlyRate.toLocaleString()} บาท
                   </span>
                 </div>
@@ -188,8 +225,9 @@ export const RoomTypes: React.FC = () => {
           ))}
 
           {roomTypes.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-500">
-              ยังไม่มีประเภทห้องพัก คลิกปุ่ม "เพิ่มประเภทห้อง" เพื่อเริ่มต้น
+            <div className="col-span-full rounded-2xl border border-dashed border-gray-300 text-center py-14 text-gray-500 bg-white">
+              ยังไม่มีประเภทห้องพัก
+              <div className="text-sm mt-1">คลิกปุ่ม "เพิ่มประเภทห้อง" เพื่อเริ่มต้น</div>
             </div>
           )}
         </div>
@@ -206,7 +244,7 @@ export const RoomTypes: React.FC = () => {
 
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">ชื่อประเภทห้อง</label>
+              <label className="text-sm font-medium text-gray-700">ชื่อประเภทห้อง</label>
               <Input
                 value={formData.typeName}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, typeName: e.target.value })}
@@ -215,7 +253,7 @@ export const RoomTypes: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium">รายละเอียด</label>
+              <label className="text-sm font-medium text-gray-700">รายละเอียด</label>
               <Input
                 value={formData.description}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, description: e.target.value })}
@@ -223,27 +261,29 @@ export const RoomTypes: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium">ค่าเช่ารายวัน (บาท)</label>
-              <Input
-                type="number"
-                value={formData.baseDailyRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseDailyRate: e.target.value })}
-                placeholder="กรอกค่าเช่ารายวัน"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">ค่าเช่ารายวัน (บาท)</label>
+                <Input
+                  type="number"
+                  value={formData.baseDailyRate}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseDailyRate: e.target.value })}
+                  placeholder="กรอกค่าเช่ารายวัน"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">ค่าเช่ารายเดือน (บาท)</label>
+                <Input
+                  type="number"
+                  value={formData.baseMonthlyRate}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseMonthlyRate: e.target.value })}
+                  placeholder="กรอกค่าเช่ารายเดือน"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">ค่าเช่ารายเดือน (บาท)</label>
-              <Input
-                type="number"
-                value={formData.baseMonthlyRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseMonthlyRate: e.target.value })}
-                placeholder="กรอกค่าเช่ารายเดือน"
-              />
-            </div>
-
-            <Button onClick={handleSave} className="w-full">
+            <Button onClick={handleSave} className="w-full" disabled={!formData.typeName.trim()}>
               บันทึก
             </Button>
           </div>

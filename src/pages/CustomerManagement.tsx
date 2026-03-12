@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDialog } from '../component/dialog';
@@ -138,12 +138,22 @@ export const CustomerManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">จัดการลูกค้า</h1>
-        <Button onClick={handleAdd} className="flex items-center gap-2" disabled={isLoading}>
-          <Plus size={20} />
-          เพิ่มลูกค้า
-        </Button>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Users size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการลูกค้า</h1>
+              <p className="text-sm text-gray-500">ดูและจัดการข้อมูลลูกค้าทั้งหมด</p>
+            </div>
+          </div>
+          <Button onClick={handleAdd} className="flex items-center gap-2" disabled={isLoading}>
+            <Plus size={20} />
+            เพิ่มลูกค้า
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

@@ -244,46 +244,74 @@ export const UtilityUsage: React.FC = () => {
         </div>
       </div>
 
-      {/* Room cards */}
-      <div className="space-y-4">
-        <h2 className="font-semibold text-gray-700">
-          บันทึกเดือน {THAI_MONTHS[selectedMonth]} {selectedYear + 543}
-        </h2>
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
+          <h2 className="font-semibold text-gray-700">
+            บันทึกเดือน {THAI_MONTHS[selectedMonth]} {selectedYear + 543}
+          </h2>
+          <span className="text-sm text-gray-500">
+            {filledCount} / {contracts.length} ห้องที่บันทึกแล้ว
+          </span>
+        </div>
 
         {isLoading ? (
-          <div className="py-12 text-center text-gray-400">กำลังโหลด...</div>
+          <div className="py-16 text-center text-gray-400">กำลังโหลด...</div>
         ) : contracts.length === 0 ? (
-          <div className="py-12 text-center text-gray-400 bg-white rounded-xl shadow">ไม่พบสัญญาที่ใช้งาน</div>
+          <div className="py-16 text-center text-gray-400">ไม่พบสัญญาที่ใช้งาน</div>
         ) : (
-          <div className="grid gap-4">
-            {contracts.map((c) => {
-              const hasData = utilityTypes.some((ut) => parseFloat(rowData[c.id]?.[ut.id]?.value || '0') > 0);
-              const roomTotal = getRoomTotal(c.id, c.monthlyRentRate);
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b">
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600 w-16">ห้อง</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">ผู้เช่า</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">
+                    ค่าเช่า (บาท)
+                  </th>
+                  {utilityTypes.map((ut) => {
+                    const colors = getUtilityColor(ut.uType);
+                    return (
+                      <th key={ut.id} className={`px-4 py-3 font-semibold whitespace-nowrap ${colors.text}`}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          {getUtilityIcon(ut.uType)}
+                          <span>{ut.uType}</span>
+                        </div>
+                        <div className="text-[11px] font-normal text-gray-400 mt-0.5">
+                          {Number(ut.ratePerUnit)} บาท/หน่วย
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th className="px-4 py-3 text-right font-semibold text-indigo-700 whitespace-nowrap">
+                    รวม (บาท)
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {contracts.map((c) => {
+                  const hasData = utilityTypes.some((ut) => parseFloat(rowData[c.id]?.[ut.id]?.value || '0') > 0);
+                  const roomTotal = getRoomTotal(c.id, c.monthlyRentRate);
 
-              return (
-                <div key={c.id} className={`bg-white rounded-xl shadow border-l-4 ${hasData ? 'border-l-emerald-400' : 'border-l-gray-300'}`}>
-                  {/* Room header */}
-                  <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50/50 rounded-t-xl">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <span className="text-lg font-black text-indigo-700">{c.room?.roomNumber ?? c.roomId}</span>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-800">{c.customer?.fullName ?? '-'}</p>
-                        <p className="text-xs text-gray-400">ค่าเช่า {fmt(c.monthlyRentRate)} บาท/เดือน</p>
-                      </div>
-                    </div>
-                    {hasData && (
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">ประมาณการรวม</p>
-                        <p className="text-lg font-bold text-indigo-700">{fmt(roomTotal)} <span className="text-xs font-normal text-gray-500">บาท</span></p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Utility inputs */}
-                  <div className="px-5 py-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  return (
+                    <tr key={c.id} className={`hover:bg-gray-50/70 transition-colors ${hasData ? 'bg-emerald-50/30' : ''}`}>
+                      {/* ห้อง */}
+                      <td className="px-4 py-3">
+                        <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
+                          <span className="text-sm font-black text-indigo-700">
+                            {c.room?.roomNumber ?? c.roomId}
+                          </span>
+                        </div>
+                      </td>
+                      {/* ผู้เช่า */}
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{c.customer?.fullName ?? '-'}</p>
+                      </td>
+                      {/* ค่าเช่า */}
+                      <td className="px-4 py-3 text-right text-gray-600 font-medium whitespace-nowrap">
+                        {fmt(c.monthlyRentRate)}
+                      </td>
+                      {/* utility inputs */}
                       {utilityTypes.map((ut) => {
                         const colors = getUtilityColor(ut.uType);
                         const val = parseFloat(rowData[c.id]?.[ut.id]?.value || '0') || 0;
@@ -291,36 +319,70 @@ export const UtilityUsage: React.FC = () => {
                         const hasSaved = !!rowData[c.id]?.[ut.id]?.existingId;
 
                         return (
-                          <div key={ut.id} className={`rounded-lg border p-3 ${colors.bg} ${colors.border}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              {getUtilityIcon(ut.uType)}
-                              <span className="text-sm font-semibold text-gray-700">{ut.uType}</span>
-                              {hasSaved && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">บันทึกแล้ว</span>}
+                          <td key={ut.id} className="px-3 py-2">
+                            <div className={`rounded-lg border p-2 ${colors.bg} ${colors.border}`}>
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={rowData[c.id]?.[ut.id]?.value ?? ''}
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                    updateCell(c.id, ut.id, e.target.value)
+                                  }
+                                  className="w-24 text-center"
+                                />
+                                <span className="text-xs text-gray-400">หน่วย</span>
+                              </div>
+                              {val > 0 ? (
+                                <p className={`text-[11px] mt-1 font-medium text-center ${colors.text}`}>
+                                  = {fmt(cost)} บาท
+                                </p>
+                              ) : hasSaved ? (
+                                <p className="text-[11px] mt-1 text-center text-emerald-600">บันทึกแล้ว</p>
+                              ) : null}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="จำนวนหน่วย"
-                                value={rowData[c.id]?.[ut.id]?.value ?? ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateCell(c.id, ut.id, e.target.value)}
-                                className="flex-1"
-                              />
-                              <span className="text-xs text-gray-500 whitespace-nowrap">หน่วย</span>
-                            </div>
-                            {val > 0 && (
-                              <p className={`text-xs mt-1.5 font-medium ${colors.text}`}>
-                                {val} × {Number(ut.ratePerUnit)} = <strong>{fmt(cost)} บาท</strong>
-                              </p>
-                            )}
-                          </div>
+                          </td>
                         );
                       })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      {/* รวม */}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {hasData ? (
+                          <span className="font-bold text-indigo-700">{fmt(roomTotal)}</span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {/* Footer summary */}
+              {contracts.length > 0 && (
+                <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+                  <tr>
+                    <td colSpan={2} className="px-4 py-3 font-semibold text-gray-600">รวมทั้งหมด</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-700 whitespace-nowrap">
+                      {fmt(contracts.reduce((s, c) => s + c.monthlyRentRate, 0))}
+                    </td>
+                    {utilityTypes.map((ut) => {
+                      const totalCost = contracts.reduce((s, c) => s + getCellCost(c.id, ut), 0);
+                      const colors = getUtilityColor(ut.uType);
+                      return (
+                        <td key={ut.id} className="px-3 py-3 text-center">
+                          <span className={`text-sm font-semibold ${colors.text}`}>
+                            {totalCost > 0 ? fmt(totalCost) : '-'}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3 text-right font-bold text-indigo-700 whitespace-nowrap">
+                      {fmt(contracts.reduce((s, c) => s + getRoomTotal(c.id, c.monthlyRentRate), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         )}
       </div>
