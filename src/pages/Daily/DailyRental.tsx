@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Trash2, Search, X } from 'lucide-react';
+import { Clock,  Plus, Search, X } from 'lucide-react';
 import { Button } from '../../component/ui/button';
-import { Input } from '../../component/ui/input';
 import { Select } from '../../component/ui/select';
 import { ConfirmDialog } from '../../component/dialog';
 import { CreateBookingDialog } from '../../component/CreateBookingDialog';
+import { DailyBookingTable } from '../../component/DailyBookingTable';
 import api from '../../lib/axios';
 import { useToast } from '../../context/ToastContext';
 
@@ -142,7 +142,6 @@ export const DailyRental: React.FC = () => {
     .filter((c) => c.fullName.toLowerCase().includes(customerSearch.toLowerCase()))
     .slice(0, 10);
 
-  const selectedCustomer = customers.find((c) => c.id === Number(form.customerId));
 
   const calcNights = (cin: string, cout: string) => {
     if (!cin || !cout) return 0;
@@ -235,69 +234,28 @@ export const DailyRental: React.FC = () => {
     return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
 
-  const renderBookingTable = (bookingsList: DailyBooking[], title: string, emptyMessage: string) => (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="px-5 py-3 border-b bg-gray-50">
-        <h3 className="font-semibold text-gray-700">{title} ({bookingsList.length} รายการ)</h3>
-      </div>
-      {bookingsList.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">{emptyMessage}</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ห้อง</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ผู้เข้าพัก</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คอิน</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">เช็คเอาท์</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-700">ราคารวม</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">สถานะการเข้าพัก</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">การชำระ</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {bookingsList.map((bk) => {
-                const room = bk.room || getRoom(bk.roomId);
-                const customer = bk.customer || getCustomer(bk.customerId);
-                return (
-                  <tr key={bk.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{room?.roomNumber ?? bk.roomId}</td>
-                    <td className="px-4 py-3">{customer?.fullName ?? '-'}</td>
-                    <td className="px-4 py-3">{formatDate(bk.checkInDate)}</td>
-                    <td className="px-4 py-3">{formatDate(bk.checkOutDate)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">{fmt(bk.totalAmount)}</td>
-                    <td className="px-4 py-3 text-center">{statusBadge(bk.bookingStatus)}</td>
-                    <td className="px-4 py-3 text-center">{paymentBadge(bk.paymentStatus)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center gap-1">
-                        <button onClick={() => navigate(`/daily-rental/${bk.id}`)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600"><Eye size={16} /></button>
-                        <button onClick={() => setConfirmDelete({ open: true, id: bk.id })} className="p-2 hover:bg-red-100 rounded-lg text-red-600"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">จัดการเช่ารายวัน</h1>
-        <Button onClick={() => { 
-          setForm({ customerId: '', roomId: '', checkInDate: new Date().toISOString().split('T')[0], checkOutDate: '', numGuests: '1', extraBedCount: '0', totalAmount: '', paymentStatus: 'PAID', amountPaid: '' }); 
-          setCustomerSearch(''); 
-          setShowCustomerDropdown(false); 
-          setIsCreateOpen(true); 
-        }} className="flex items-center gap-2">
-          <Plus size={16} /> สร้างการพักรายวัน
-        </Button>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Clock size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการเช่ารายวัน</h1>
+              <p className="text-sm text-gray-500">ติดตามผู้เข้าพักปัจจุบันและประวัติการเช็คเอาท์</p>
+            </div>
+          </div>
+          <Button onClick={() => { 
+            setForm({ customerId: '', roomId: '', checkInDate: new Date().toISOString().split('T')[0], checkOutDate: '', numGuests: '1', extraBedCount: '0', totalAmount: '', paymentStatus: 'PAID', amountPaid: '' }); 
+            setCustomerSearch(''); 
+            setShowCustomerDropdown(false); 
+            setIsCreateOpen(true); 
+          }} className="flex items-center gap-2">
+            <Plus size={16} /> สร้างการพักรายวัน
+          </Button>
+        </div>
       </div>
 
       {/* Search + Filter bar */}
@@ -343,18 +301,36 @@ export const DailyRental: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* ตารางผู้เข้าพัก */}
-          {renderBookingTable(
-            stayedBookings,
-            'ผู้เข้าพักปัจจุบัน',
-            hasFilter ? 'ไม่พบรายการผู้เข้าพักที่ตรงกับเงื่อนไข' : 'ไม่มีผู้เข้าพักในขณะนี้'
-          )}
+          <DailyBookingTable
+            bookingsList={stayedBookings}
+            title="ผู้เข้าพักปัจจุบัน"
+            emptyMessage={hasFilter ? 'ไม่พบรายการผู้เข้าพักที่ตรงกับเงื่อนไข' : 'ไม่มีผู้เข้าพักในขณะนี้'}
+            accentColorClass="bg-emerald-400"
+            getRoom={getRoom}
+            getCustomer={getCustomer}
+            formatDate={formatDate}
+            fmt={fmt}
+            statusBadge={statusBadge}
+            paymentBadge={paymentBadge}
+            onView={(id) => navigate(`/daily-rental/${id}`)}
+            onDelete={(id) => setConfirmDelete({ open: true, id })}
+          />
           
           {/* ตารางผู้เช็คเอาท์ */}
-          {renderBookingTable(
-            checkedOutBookings,
-            'ประวัติการเช็คเอาท์',
-            hasFilter ? 'ไม่พบประวัติการเช็คเอาท์ที่ตรงกับเงื่อนไข' : 'ไม่มีประวัติการเช็คเอาท์'
-          )}
+          <DailyBookingTable
+            bookingsList={checkedOutBookings}
+            title="ประวัติการเช็คเอาท์"
+            emptyMessage={hasFilter ? 'ไม่พบประวัติการเช็คเอาท์ที่ตรงกับเงื่อนไข' : 'ไม่มีประวัติการเช็คเอาท์'}
+            accentColorClass="bg-red-400"
+            getRoom={getRoom}
+            getCustomer={getCustomer}
+            formatDate={formatDate}
+            fmt={fmt}
+            statusBadge={statusBadge}
+            paymentBadge={paymentBadge}
+            onView={(id) => navigate(`/daily-rental/${id}`)}
+            onDelete={(id) => setConfirmDelete({ open: true, id })}
+          />
         </div>
       )}
 

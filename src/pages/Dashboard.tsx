@@ -67,7 +67,19 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">แผงควบคุม</h1>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Home size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">แผงควบคุม</h1>
+              <p className="text-sm text-gray-500">สรุปภาพรวมการใช้งานหอพักและสถานะสำคัญประจำวัน</p>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => {
           const Icon = card.icon;

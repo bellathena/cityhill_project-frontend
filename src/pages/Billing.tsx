@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Printer, Trash2, CreditCard, Printer as PrintAll } from 'lucide-react';
+import { Receipt, Plus, Printer as PrintAll } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Select } from '../component/ui/select';
 import { ConfirmDialog } from '../component/dialog';
+import { BillingInvoiceTable } from '../component/BillingInvoiceTable';
 import api from '../lib/axios';
 import { useToast } from '../context/ToastContext';
 import { printInvoice, printAllInvoices, type Invoice as PrintInvoice, THAI_MONTHS } from '../lib/printInvoice';
@@ -212,17 +213,27 @@ const Billing: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">จัดการใบแจ้งหนี้</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={handleCreateAll} className="flex items-center gap-2">
-            <Plus size={16} /> สร้างใบแจ้งหนี้ 
-          </Button>
-          {monthInvoices.length > 0 && (
-            <Button variant="secondary" onClick={handlePrintAll} className="flex items-center gap-2">
-              <PrintAll size={16} /> พิมพ์ทั้งหมด
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Receipt size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการใบแจ้งหนี้</h1>
+              <p className="text-sm text-gray-500">สร้างและติดตามสถานะใบแจ้งหนี้รายเดือนของผู้เช่า</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleCreateAll} className="flex items-center gap-2">
+              <Plus size={16} /> สร้างใบแจ้งหนี้
             </Button>
-          )}
+            {monthInvoices.length > 0 && (
+              <Button variant="secondary" onClick={handlePrintAll} className="flex items-center gap-2">
+                <PrintAll size={16} /> พิมพ์ทั้งหมด
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -251,51 +262,19 @@ const Billing: React.FC = () => {
       </div>
 
       {/* Invoice Table */}
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        {loading ? (
-          <div className="py-12 text-center text-gray-400">กำลังโหลด...</div>
-        ) : monthInvoices.length === 0 ? (
-          <div className="py-12 text-center text-gray-400">ไม่มีใบแจ้งหนี้สำหรับเดือนนี้</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ห้อง</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">ผู้เช่า</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">วันที่ออกบิล</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">วันครบกำหนด</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-700">ยอดรวม</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">สถานะ</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-700">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {monthInvoices.map((inv) => {
-                const c = inv.monthlyContract;
-                return (
-                  <tr key={inv.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{c?.room?.roomNumber ?? '-'}</td>
-                    <td className="px-4 py-3">{c?.customer?.fullName ?? '-'}</td>
-                    <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
-                    <td className="px-4 py-3">{formatDate(inv.dueDate)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">{fmt(Number(inv.grandTotal))}</td>
-                    <td className="px-4 py-3 text-center">{statusBadge(inv.paymentStatus)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center gap-1">
-                        {inv.paymentStatus !== 'PAID' && (
-                          <button onClick={() => navigate(`/billing/payment/${inv.id}`)} className="p-2 hover:bg-green-100 rounded-lg text-green-600" title="ชำระเงิน"><CreditCard size={16} /></button>
-                        )}
-                        <button onClick={() => handlePrintOne(inv)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="พิมพ์"><Printer size={16} /></button>
-                        <button onClick={() => setConfirmDelete({ open: true, id: inv.id })} className="p-2 hover:bg-red-100 rounded-lg text-red-600" title="ลบ"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <BillingInvoiceTable
+        loading={loading}
+        invoices={monthInvoices}
+        title="ใบแจ้งหนี้รายเดือน"
+        emptyMessage="ไม่มีใบแจ้งหนี้สำหรับเดือนนี้"
+        accentColorClass="bg-blue-400"
+        formatDate={formatDate}
+        fmt={fmt}
+        statusBadge={statusBadge}
+        onPay={(invoiceId) => navigate(`/billing/payment/${invoiceId}`)}
+        onPrint={handlePrintOne}
+        onDelete={(invoiceId) => setConfirmDelete({ open: true, id: invoiceId })}
+      />
 
       <ConfirmDialog
         isOpen={confirmDelete.open}

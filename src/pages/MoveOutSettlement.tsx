@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { DoorOpen, Plus } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
+import { Select } from '../component/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../component/dialog';
 import api from '../lib/axios';
 import { useToast } from '../context/ToastContext';
@@ -42,6 +43,9 @@ export const MoveOutSettlement: React.FC = () => {
   const [contracts, setContracts] = useState<ActiveContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [contractSearch, setContractSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingDeposit, setLoadingDeposit] = useState(false);
@@ -155,65 +159,120 @@ export const MoveOutSettlement: React.FC = () => {
 
   const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
+  const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const buddhistYears = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+
+  const filteredSettlements = settlements.filter((s) => {
+    const d = new Date(s.moveOutDate);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
+
   if (loading) return <div className="p-6 text-center text-gray-500">กำลังโหลด...</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">จัดการการย้ายออก</h1>
-        <Button
-          onClick={() => {
-            setForm({ contractId: '', moveOutDate: new Date().toISOString().split('T')[0], totalDeposit: '', damageDeduction: '0', cleaningFee: '0', outstandingBalance: '0' });
-            setContractSearch('');
-            setShowDropdown(false);
-            setIsDialogOpen(true);
-          }}
-          className="flex items-center gap-2"
-          disabled={contracts.length === 0}
-        >
-          <Plus size={20} /> สร้างรายการย้ายออก
-        </Button>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <DoorOpen size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการการย้ายออก</h1>
+              <p className="text-sm text-gray-500">สรุปรายการย้ายออกและติดตามสถานะการคืนเงิน</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              setForm({ contractId: '', moveOutDate: new Date().toISOString().split('T')[0], totalDeposit: '', damageDeduction: '0', cleaningFee: '0', outstandingBalance: '0' });
+              setContractSearch('');
+              setShowDropdown(false);
+              setIsDialogOpen(true);
+            }}
+            className="flex items-center gap-2"
+            disabled={contracts.length === 0}
+          >
+            <Plus size={20} /> สร้างรายการย้ายออก
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ห้อง</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ลูกค้า</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">วันย้ายออก</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">เงินมัดจำ</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">หักค่าเสียหาย</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">คืนสุทธิ</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">สถานะ</th>
-              <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {settlements.length === 0 ? (
-              <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">ไม่มีรายการ</td></tr>
-            ) : settlements.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium">{s.contract?.room?.roomNumber}</td>
-                <td className="px-6 py-4">{s.contract?.customer?.fullName}</td>
-                <td className="px-6 py-4 text-sm">{formatDate(s.moveOutDate)}</td>
-                <td className="px-6 py-4 text-sm">{fmt(s.totalDeposit)}</td>
-                <td className="px-6 py-4 text-sm text-red-600">{fmt((s.damageDeduction || 0) + (s.cleaningFee || 0) + (s.outstandingBalance || 0))}</td>
-                <td className="px-6 py-4 font-bold text-green-600">{fmt(s.netRefund)}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.refundStatus === 'REFUNDED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {s.refundStatus === 'REFUNDED' ? 'คืนแล้ว' : 'รอคืน'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  {s.refundStatus === 'PENDING' && (
-                    <Button size="sm" onClick={() => handleRefund(s.id)} className="text-xs">คืนเงินแล้ว</Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-end gap-4">
+          <div className="min-w-[160px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
+            <Select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+              {THAI_MONTHS.map((m, i) => (
+                <option key={i} value={i}>{m}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="min-w-[160px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">ปี (ค.ศ.)</label>
+            <Select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+              {buddhistYears.map((y) => (
+                <option key={y} value={y}>{y + 543} ({y})</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        <section className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-2 h-6 rounded-full bg-blue-400" />
+            <h3 className="text-lg font-bold text-slate-800">
+              รายการย้ายออก ({filteredSettlements.length} รายการ)
+            </h3>
+          </div>
+
+          {filteredSettlements.length === 0 ? (
+            <div className="px-6 py-12 text-center text-slate-400 italic">ไม่มีรายการในเดือนที่เลือก</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left border-b border-slate-50 bg-slate-50/20">
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">ห้อง</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">ลูกค้า</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">วันย้ายออก</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">เงินมัดจำ</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">หักค่าเสียหาย</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">คืนสุทธิ</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">สถานะ</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredSettlements.map((s) => (
+                    <tr key={s.id} className="hover:bg-emerald-50/30 transition-colors">
+                      <td className="px-6 py-4 font-black text-slate-700">{s.contract?.room?.roomNumber ?? '-'}</td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800">{s.contract?.customer?.fullName ?? '-'}</p>
+                        <p className="text-[11px] text-slate-400 font-medium">{s.contract?.customer?.phone ?? '-'}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500 italic">{formatDate(s.moveOutDate)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-slate-700">฿{fmt(s.totalDeposit)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-red-600">฿{fmt((s.damageDeduction || 0) + (s.cleaningFee || 0) + (s.outstandingBalance || 0))}</td>
+                      <td className="px-6 py-4 text-right font-bold text-emerald-600">฿{fmt(s.netRefund)}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.refundStatus === 'REFUNDED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {s.refundStatus === 'REFUNDED' ? 'คืนแล้ว' : 'รอคืน'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {s.refundStatus === 'PENDING' && (
+                          <Button size="sm" onClick={() => handleRefund(s.id)} className="text-xs">
+                            คืนเงินแล้ว
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

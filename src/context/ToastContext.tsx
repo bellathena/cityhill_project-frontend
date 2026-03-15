@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Toast from '../components/Toast';
 import type { ToastMessage, ToastType } from '../components/Toast';
 
@@ -33,16 +34,19 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="pointer-events-auto">
-            <Toast
-              {...toast}
-              onClose={removeToast}
-            />
-          </div>
-        ))}
-      </div>
+      {typeof document !== 'undefined' && createPortal(
+        <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none w-[calc(100vw-2rem)] sm:w-auto sm:max-w-sm">
+          {toasts.map((toast) => (
+            <div key={toast.id} className="pointer-events-auto">
+              <Toast
+                {...toast}
+                onClose={removeToast}
+              />
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
     </ToastContext.Provider>
   );
 };

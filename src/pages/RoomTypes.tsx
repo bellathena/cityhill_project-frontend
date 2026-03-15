@@ -30,6 +30,11 @@ export const RoomTypes: React.FC = () => {
     baseMonthlyRate: '',
     description: '',
   });
+  const [formErrors, setFormErrors] = useState<{
+    typeName?: string;
+    baseDailyRate?: string;
+    baseMonthlyRate?: string;
+  }>({});
   const [confirmData, setConfirmData] = useState<{
     isOpen: boolean;
     typeId: number | null;
@@ -62,6 +67,7 @@ export const RoomTypes: React.FC = () => {
 
   const handleAdd = () => {
     setIsAddMode(true);
+    setFormErrors({});
     setFormData({
       typeName: '',
       baseDailyRate: '',
@@ -74,6 +80,7 @@ export const RoomTypes: React.FC = () => {
   const handleEdit = (type: RoomType) => {
     setIsAddMode(false);
     setSelectedType(type);
+    setFormErrors({});
     setFormData({
       typeName: type.typeName,
       baseDailyRate: type.baseDailyRate.toString(),
@@ -83,7 +90,46 @@ export const RoomTypes: React.FC = () => {
     setIsDialogOpen(true);
   };
 
+  const validateForm = () => {
+    const errors: {
+      typeName?: string;
+      baseDailyRate?: string;
+      baseMonthlyRate?: string;
+    } = {};
+
+    if (!formData.typeName.trim()) {
+      errors.typeName = 'กรุณากรอกชื่อประเภทห้อง';
+    }
+
+    const dailyRate = parseFloat(formData.baseDailyRate);
+    const monthlyRate = parseFloat(formData.baseMonthlyRate);
+
+    if (!formData.baseDailyRate.trim()) {
+      errors.baseDailyRate = 'กรุณากรอกค่าเช่ารายวัน';
+    } else if (Number.isNaN(dailyRate)) {
+      errors.baseDailyRate = 'ค่าเช่ารายวันต้องเป็นตัวเลข';
+    } else if (dailyRate < 0) {
+      errors.baseDailyRate = 'ค่าเช่ารายวันต้องมากกว่าหรือเท่ากับ 0';
+    }
+
+    if (!formData.baseMonthlyRate.trim()) {
+      errors.baseMonthlyRate = 'กรุณากรอกค่าเช่ารายเดือน';
+    } else if (Number.isNaN(monthlyRate)) {
+      errors.baseMonthlyRate = 'ค่าเช่ารายเดือนต้องเป็นตัวเลข';
+    } else if (monthlyRate < 0) {
+      errors.baseMonthlyRate = 'ค่าเช่ารายเดือนต้องมากกว่าหรือเท่ากับ 0';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) {
+      addToast('ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจสอบช่องที่มีกรอบสีแดง', 'warning');
+      return;
+    }
+
     try {
       if (isAddMode) {
         const newType = {
@@ -110,9 +156,22 @@ export const RoomTypes: React.FC = () => {
         setIsDialogOpen(false);
         fetchRoomTypes();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving room type:', error);
-      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+
+      const responseError = error?.response?.data;
+      const messageFromServer = responseError?.message || responseError?.error;
+      const detailsFromServer = Array.isArray(responseError?.details)
+        ? responseError.details.join(', ')
+        : undefined;
+
+      const actionText = isAddMode ? 'เพิ่มประเภทห้อง' : 'อัปเดตประเภทห้อง';
+      const errorMessage = [
+        messageFromServer,
+        detailsFromServer,
+      ].filter(Boolean).join(' - ');
+
+      addToast(errorMessage || `${actionText}ไม่สำเร็จ กรุณาตรวจสอบข้อมูลที่กรอก`, 'error');
     }
   };
 
@@ -247,9 +306,18 @@ export const RoomTypes: React.FC = () => {
               <label className="text-sm font-medium text-gray-700">ชื่อประเภทห้อง</label>
               <Input
                 value={formData.typeName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, typeName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setFormData({ ...formData, typeName: e.target.value });
+                  if (formErrors.typeName) {
+                    setFormErrors((prev) => ({ ...prev, typeName: undefined }));
+                  }
+                }}
                 placeholder="เช่น ห้องพัดลม, ห้องแอร์"
+                className={formErrors.typeName ? 'border-red-400 focus-visible:ring-red-400' : ''}
               />
+              {formErrors.typeName && (
+                <p className="mt-1 text-xs text-red-600">{formErrors.typeName}</p>
+              )}
             </div>
 
             <div>
@@ -267,9 +335,18 @@ export const RoomTypes: React.FC = () => {
                 <Input
                   type="number"
                   value={formData.baseDailyRate}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseDailyRate: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setFormData({ ...formData, baseDailyRate: e.target.value });
+                    if (formErrors.baseDailyRate) {
+                      setFormErrors((prev) => ({ ...prev, baseDailyRate: undefined }));
+                    }
+                  }}
                   placeholder="กรอกค่าเช่ารายวัน"
+                  className={formErrors.baseDailyRate ? 'border-red-400 focus-visible:ring-red-400' : ''}
                 />
+                {formErrors.baseDailyRate && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.baseDailyRate}</p>
+                )}
               </div>
 
               <div>
@@ -277,9 +354,18 @@ export const RoomTypes: React.FC = () => {
                 <Input
                   type="number"
                   value={formData.baseMonthlyRate}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseMonthlyRate: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setFormData({ ...formData, baseMonthlyRate: e.target.value });
+                    if (formErrors.baseMonthlyRate) {
+                      setFormErrors((prev) => ({ ...prev, baseMonthlyRate: undefined }));
+                    }
+                  }}
                   placeholder="กรอกค่าเช่ารายเดือน"
+                  className={formErrors.baseMonthlyRate ? 'border-red-400 focus-visible:ring-red-400' : ''}
                 />
+                {formErrors.baseMonthlyRate && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.baseMonthlyRate}</p>
+                )}
               </div>
             </div>
 

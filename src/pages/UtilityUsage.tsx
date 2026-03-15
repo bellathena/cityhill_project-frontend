@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Zap, Droplets } from 'lucide-react';
+import { ClipboardList, Save, Zap, Droplets } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Input } from '../component/ui/input';
 import { Select } from '../component/ui/select';
@@ -199,7 +199,19 @@ export const UtilityUsage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">จัดการการใช้สาธารณูปโภค</h1>
+      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-sky-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <ClipboardList size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">จัดการการใช้สาธารณูปโภค</h1>
+              <p className="text-sm text-gray-500">บันทึกหน่วยการใช้งานรายเดือนและคำนวณยอดรวมรายห้อง</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Month/Year + Save */}
       <div className="bg-white rounded-xl shadow p-5">
