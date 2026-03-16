@@ -14,7 +14,7 @@ interface UsageRecord { id: number; roomId: number; recordDate: string; utilityU
 interface Contract {
   id: number; roomId: number; customerId: number; monthlyRentRate: number; contractStatus: string;
   customer?: { fullName: string; phone: string };
-  room?: { roomNumber: number };
+  room?: { roomNumber: number; floor?: number };
 }
 interface ApiInvoice {
   id: number; monthlyContractId: number; invoiceDate: string; dueDate: string; grandTotal: number; paymentStatus: string;
@@ -28,6 +28,7 @@ const Billing: React.FC = () => {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedFloor, setSelectedFloor] = useState<string>('all');
 
   const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -64,9 +65,39 @@ const Billing: React.FC = () => {
     return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
   });
 
-  const pendingCount = monthInvoices.filter((i) => i.paymentStatus === 'PENDING').length;
-  const paidCount = monthInvoices.filter((i) => i.paymentStatus === 'PAID').length;
-  const totalAmount = monthInvoices.reduce((s, i) => s + Number(i.grandTotal), 0);
+  const getContractFloor = (contract?: Contract): number | undefined => {
+    if (!contract) return undefined;
+    if (typeof contract.room?.floor === 'number') return contract.room.floor;
+
+    const roomNumber = Number(contract.room?.roomNumber);
+    if (!Number.isFinite(roomNumber) || roomNumber <= 0) return undefined;
+
+    const derivedFloor = Math.floor(roomNumber / 100);
+    return derivedFloor > 0 ? derivedFloor : undefined;
+  };
+
+  const floorOptions = Array.from(
+    new Set(
+      contracts
+        .map((c) => getContractFloor(c))
+        .filter((floor): floor is number => typeof floor === 'number')
+    )
+  ).sort((a, b) => a - b);
+
+  const getInvoiceContract = (inv: ApiInvoice): Contract | undefined => {
+    if (inv.monthlyContract) return inv.monthlyContract;
+    return contracts.find((c) => c.id === inv.monthlyContractId);
+  };
+
+  const filteredMonthInvoices = monthInvoices.filter((inv) => {
+    if (selectedFloor === 'all') return true;
+    const floor = getContractFloor(getInvoiceContract(inv));
+    return floor === Number(selectedFloor);
+  });
+
+  const pendingCount = filteredMonthInvoices.filter((i) => i.paymentStatus === 'PENDING').length;
+  const paidCount = filteredMonthInvoices.filter((i) => i.paymentStatus === 'PAID').length;
+  const totalAmount = filteredMonthInvoices.reduce((s, i) => s + Number(i.grandTotal), 0);
 
   // Parse year/month directly from date string to avoid UTC timezone shift
   const parseYM = (dateStr: string) => {
@@ -148,7 +179,12 @@ const Billing: React.FC = () => {
 
   const handleCreateAll = async () => {
     try {
-      const activeContracts = contracts.filter((c) => c.contractStatus === 'ACTIVE' || c.contractStatus === 'NOTICE');
+      const activeContracts = contracts.filter((c) => {
+        const isActive = c.contractStatus === 'ACTIVE' || c.contractStatus === 'NOTICE';
+        if (!isActive) return false;
+        if (selectedFloor === 'all') return true;
+        return getContractFloor(c) === Number(selectedFloor);
+      });
       const existingContractIds = new Set(monthInvoices.map((i) => i.monthlyContractId));
 
       const toCreate = activeContracts.filter((c) => !existingContractIds.has(c.id));
@@ -195,7 +231,7 @@ const Billing: React.FC = () => {
   };
 
   const handlePrintOne = (inv: ApiInvoice) => printInvoice(buildPrintInvoice(inv));
-  const handlePrintAll = () => printAllInvoices(monthInvoices.map(buildPrintInvoice));
+  const handlePrintAll = () => printAllInvoices(filteredMonthInvoices.map(buildPrintInvoice));
 
   const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2 });
   const formatDate = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -228,7 +264,7 @@ const Billing: React.FC = () => {
             <Button onClick={handleCreateAll} className="flex items-center gap-2">
               <Plus size={16} /> สร้างใบแจ้งหนี้
             </Button>
-            {monthInvoices.length > 0 && (
+            {filteredMonthInvoices.length > 0 && (
               <Button variant="secondary" onClick={handlePrintAll} className="flex items-center gap-2">
                 <PrintAll size={16} /> พิมพ์ทั้งหมด
               </Button>
@@ -251,11 +287,20 @@ const Billing: React.FC = () => {
             {buddhistYears.map((y) => (<option key={y} value={y}>{y + 543} ({y})</option>))}
           </Select>
         </div>
+        <div className="min-w-[160px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">ชั้น</label>
+          <Select value={selectedFloor} onChange={(e) => setSelectedFloor(e.target.value)}>
+            <option value="all">ทุกชั้น</option>
+            {floorOptions.map((floor) => (
+              <option key={floor} value={String(floor)}>ชั้น {floor}</option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4"><p className="text-xs text-gray-500">ทั้งหมด</p><p className="text-2xl font-bold">{monthInvoices.length}</p></div>
+        <div className="bg-white rounded-lg shadow p-4"><p className="text-xs text-gray-500">ทั้งหมด</p><p className="text-2xl font-bold">{filteredMonthInvoices.length}</p></div>
         <div className="bg-white rounded-lg shadow p-4"><p className="text-xs text-gray-500">รอชำระ</p><p className="text-2xl font-bold text-amber-600">{pendingCount}</p></div>
         <div className="bg-white rounded-lg shadow p-4"><p className="text-xs text-gray-500">ชำระแล้ว</p><p className="text-2xl font-bold text-green-600">{paidCount}</p></div>
         <div className="bg-white rounded-lg shadow p-4"><p className="text-xs text-gray-500">ยอดรวม</p><p className="text-2xl font-bold text-blue-700">{fmt(totalAmount)}</p></div>
@@ -264,7 +309,7 @@ const Billing: React.FC = () => {
       {/* Invoice Table */}
       <BillingInvoiceTable
         loading={loading}
-        invoices={monthInvoices}
+        invoices={filteredMonthInvoices}
         title="ใบแจ้งหนี้รายเดือน"
         emptyMessage="ไม่มีใบแจ้งหนี้สำหรับเดือนนี้"
         accentColorClass="bg-blue-400"

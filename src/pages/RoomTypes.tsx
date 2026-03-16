@@ -96,7 +96,7 @@ export const RoomTypes: React.FC = () => {
       baseDailyRate?: string;
       baseMonthlyRate?: string;
     } = {};
-
+  
     if (!formData.typeName.trim()) {
       errors.typeName = 'กรุณากรอกชื่อประเภทห้อง';
     }
@@ -369,7 +369,7 @@ export const RoomTypes: React.FC = () => {
               </div>
             </div>
 
-            <Button onClick={handleSave} className="w-full" disabled={!formData.typeName.trim()}>
+            <Button onClick={handleSave} className="w-full" >
               บันทึก
             </Button>
           </div>

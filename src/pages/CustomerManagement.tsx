@@ -36,6 +36,11 @@ export const CustomerManagement: React.FC = () => {
     phone: '',
     carLicense: '',
   });
+  const [formErrors, setFormErrors] = useState<{
+    fullName?: string;
+    citizenId?: string;
+    phone?: string;
+  }>({});
 
   useEffect(() => {
     fetchCustomers();
@@ -56,6 +61,7 @@ export const CustomerManagement: React.FC = () => {
 
   const handleAdd = () => {
     setIsAddMode(true);
+    setFormErrors({});
     setFormData({
       fullName: '',
       citizenId: '',
@@ -69,6 +75,7 @@ export const CustomerManagement: React.FC = () => {
   const handleEdit = (customer: Customer) => {
     setIsAddMode(false);
     setSelectedCustomer(customer);
+    setFormErrors({});
     setFormData({
       fullName: customer.fullName,
       citizenId: customer.citizenId,
@@ -79,17 +86,36 @@ export const CustomerManagement: React.FC = () => {
     setIsDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    try {
-      if (!formData.fullName.trim()) {
-        addToast('กรุณากรอกชื่อลูกค้า', 'warning');
-        return;
-      }
-      if (!formData.phone.trim()) {
-        addToast('กรุณากรอกเบอร์โทรศัพท์', 'warning');
-        return;
-      }
+  const validateForm = () => {
+    const errors: {
+      fullName?: string;
+      citizenId?: string;
+      phone?: string;
+    } = {};
 
+    if (!formData.fullName.trim()) {
+      errors.fullName = 'กรุณากรอกชื่อลูกค้า';
+    }
+
+    if (!formData.citizenId.trim()) {
+      errors.citizenId = 'กรุณากรอกเลขบัตรประชาชน';
+    }
+
+    if (!formData.phone.trim()) {
+      errors.phone = 'กรุณากรอกเบอร์โทรศัพท์';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
+      addToast('ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจสอบช่องที่มีกรอบสีแดง', 'warning');
+      return;
+    }
+
+    try {
       if (isAddMode) {
         await api.post('/customers', formData);
         addToast('เพิ่มลูกค้าสำเร็จ', 'success');
@@ -101,9 +127,13 @@ export const CustomerManagement: React.FC = () => {
         setIsDialogOpen(false);
         fetchCustomers();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving customer:', error);
-      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+
+      const responseError = error?.response?.data;
+      const messageFromServer = responseError?.message || responseError?.error;
+
+      addToast(messageFromServer || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     }
   };
 
@@ -235,33 +265,54 @@ export const CustomerManagement: React.FC = () => {
               <label className="text-sm font-medium">ชื่อลูกค้า *</label>
               <Input
                 value={formData.fullName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  setFormData({ ...formData, fullName: e.target.value })
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setFormData({ ...formData, fullName: e.target.value });
+                  if (formErrors.fullName) {
+                    setFormErrors((prev) => ({ ...prev, fullName: undefined }));
+                  }
+                }}
                 placeholder="เช่น ธนพล ใจดี"
+                className={formErrors.fullName ? 'border-red-400 focus-visible:ring-red-400' : ''}
               />
+              {formErrors.fullName && (
+                <p className="mt-1 text-xs text-red-600">{formErrors.fullName}</p>
+              )}
             </div>
 
             <div>
-              <label className="text-sm font-medium">เลขบัตรประชาชน</label>
+              <label className="text-sm font-medium">เลขบัตรประชาชน *</label>
               <Input
                 value={formData.citizenId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  setFormData({ ...formData, citizenId: e.target.value })
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setFormData({ ...formData, citizenId: e.target.value });
+                  if (formErrors.citizenId) {
+                    setFormErrors((prev) => ({ ...prev, citizenId: undefined }));
+                  }
+                }}
                 placeholder="เช่น 1234567890123"
+                className={formErrors.citizenId ? 'border-red-400 focus-visible:ring-red-400' : ''}
               />
+              {formErrors.citizenId && (
+                <p className="mt-1 text-xs text-red-600">{formErrors.citizenId}</p>
+              )}
             </div>
 
             <div>
               <label className="text-sm font-medium">เบอร์โทรศัพท์ *</label>
               <Input
                 value={formData.phone}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  if (formErrors.phone) {
+                    setFormErrors((prev) => ({ ...prev, phone: undefined }));
+                  }
+                }}
                 placeholder="เช่น 0891234567"
+                className={formErrors.phone ? 'border-red-400 focus-visible:ring-red-400' : ''}
               />
+              {formErrors.phone && (
+                <p className="mt-1 text-xs text-red-600">{formErrors.phone}</p>
+              )}
             </div>
 
             <div>

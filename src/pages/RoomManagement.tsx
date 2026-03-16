@@ -52,6 +52,11 @@ export const RoomManagement: React.FC = () => {
     allowedType: 'FLEXIBLE' as AllowedType,
     currentStatus: 'AVAILABLE' as RoomStatus,
   });
+  const [formErrors, setFormErrors] = useState<{
+    roomNumber?: string;
+    floor?: string;
+    typeId?: string;
+  }>({});
   const [confirmData, setConfirmData] = useState<{
     isOpen: boolean;
     roomNumber: number | null;
@@ -85,6 +90,7 @@ export const RoomManagement: React.FC = () => {
 
   const handleAdd = () => {
     setIsAddMode(true);
+    setFormErrors({});
     setFormData({ roomNumber: '', floor: '', typeId: '', allowedType: 'FLEXIBLE', currentStatus: 'AVAILABLE' });
     setIsDialogOpen(true);
   };
@@ -92,6 +98,7 @@ export const RoomManagement: React.FC = () => {
   const handleEdit = (room: Room) => {
     setIsAddMode(false);
     setSelectedRoom(room);
+    setFormErrors({});
     setFormData({
       roomNumber: room.roomNumber.toString(),
       floor: room.floor.toString(),
@@ -102,21 +109,61 @@ export const RoomManagement: React.FC = () => {
     setIsDialogOpen(true);
   };
 
+  const validateForm = () => {
+    const errors: {
+      roomNumber?: string;
+      floor?: string;
+      typeId?: string;
+    } = {};
+
+    const roomNumber = parseInt(formData.roomNumber, 10);
+    const floor = parseInt(formData.floor, 10);
+    const typeId = parseInt(formData.typeId, 10);
+
+    if (isAddMode) {
+      if (!formData.roomNumber.trim()) {
+        errors.roomNumber = 'กรุณากรอกเลขห้อง';
+      } else if (Number.isNaN(roomNumber) || roomNumber <= 0) {
+        errors.roomNumber = 'เลขห้องต้องเป็นตัวเลขมากกว่า 0';
+      }
+    }
+
+    if (!formData.floor.trim()) {
+      errors.floor = 'กรุณากรอกชั้นของห้อง';
+    } else if (Number.isNaN(floor) || floor <= 0) {
+      errors.floor = 'ชั้นต้องเป็นตัวเลขมากกว่า 0';
+    }
+
+    if (!formData.typeId.trim()) {
+      errors.typeId = 'กรุณาเลือกประเภทห้อง';
+    } else if (Number.isNaN(typeId) || typeId <= 0) {
+      errors.typeId = 'ประเภทห้องไม่ถูกต้อง';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) {
+      addToast('ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจสอบข้อมูลที่กรอก', 'warning');
+      return;
+    }
+
     try {
       if (isAddMode) {
         await api.post('/rooms', {
-          roomNumber: parseInt(formData.roomNumber),
-          floor: parseInt(formData.floor),
-          typeId: parseInt(formData.typeId),
+          roomNumber: parseInt(formData.roomNumber, 10),
+          floor: parseInt(formData.floor, 10),
+          typeId: parseInt(formData.typeId, 10),
           allowedType: formData.allowedType,
           currentStatus: formData.currentStatus,
         });
         addToast('เพิ่มห้องสำเร็จ', 'success');
       } else if (selectedRoom) {
         await api.put(`/rooms/${selectedRoom.roomNumber}`, {
-          floor: parseInt(formData.floor),
-          typeId: parseInt(formData.typeId),
+          floor: parseInt(formData.floor, 10),
+          typeId: parseInt(formData.typeId, 10),
           allowedType: formData.allowedType,
           currentStatus: formData.currentStatus,
         });
@@ -124,8 +171,10 @@ export const RoomManagement: React.FC = () => {
       }
       setIsDialogOpen(false);
       fetchRooms();
-    } catch (err: any) {
-      addToast(err.response?.data?.error || 'เกิดข้อผิดพลาด', 'error');
+    } catch (error: any) {
+      const responseError = error?.response?.data;
+      const messageFromServer = responseError?.message || responseError?.error;
+      addToast(messageFromServer || 'บันทึกข้อมูลห้องไม่สำเร็จ กรุณาตรวจสอบข้อมูล', 'error');
     }
   };
 
@@ -297,18 +346,43 @@ export const RoomManagement: React.FC = () => {
                     <Input
                       type={type}
                       value={formData[field]}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [field]: e.target.value })}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setFormData({ ...formData, [field]: e.target.value });
+                        if (formErrors[field]) {
+                          setFormErrors((prev) => ({ ...prev, [field]: undefined }));
+                        }
+                      }}
                       placeholder={placeholder}
                       disabled={disabled}
+                      className={formErrors[field] ? 'border-red-400 focus-visible:ring-red-400' : ''}
                     />
+                    {formErrors[field] && (
+                      <p className="mt-1 text-xs text-red-600">{formErrors[field]}</p>
+                    )}
                   </div>
                 ))}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">ประเภทห้อง</label>
-                  <select value={formData.typeId} onChange={(e) => setFormData({ ...formData, typeId: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-indigo-400 transition-colors bg-white">
+                  <select
+                    value={formData.typeId}
+                    onChange={(e) => {
+                      setFormData({ ...formData, typeId: e.target.value });
+                      if (formErrors.typeId) {
+                        setFormErrors((prev) => ({ ...prev, typeId: undefined }));
+                      }
+                    }}
+                    className={`w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors bg-white ${
+                      formErrors.typeId
+                        ? 'border border-red-400 focus:border-red-400'
+                        : 'border border-gray-200 focus:border-indigo-400'
+                    }`}
+                  >
                     <option value="">เลือกประเภทห้อง</option>
                     {roomTypes.map((type) => (<option key={type.id} value={type.id}>{type.typeName}</option>))}
                   </select>
+                  {formErrors.typeId && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.typeId}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">ประเภทการเช่า</label>

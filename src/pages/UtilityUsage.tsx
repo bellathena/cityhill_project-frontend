@@ -24,7 +24,7 @@ interface Contract {
   monthlyRentRate: number;
   contractStatus: string;
   customer?: { fullName: string };
-  room?: { roomNumber: number };
+  room?: { roomNumber: number; floor?: number };
 }
 
 interface UsageRecord {
@@ -64,11 +64,22 @@ const getUtilityColor = (uType: string) => {
   return { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-800' };
 };
 
+const getContractFloor = (contract: Contract): number | undefined => {
+  if (typeof contract.room?.floor === 'number') return contract.room.floor;
+
+  const roomNumber = Number(contract.room?.roomNumber);
+  if (!Number.isFinite(roomNumber) || roomNumber <= 0) return undefined;
+
+  const derivedFloor = Math.floor(roomNumber / 100);
+  return derivedFloor > 0 ? derivedFloor : undefined;
+};
+
 export const UtilityUsage: React.FC = () => {
   const { addToast } = useToast();
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedFloor, setSelectedFloor] = useState<string>('all');
 
   const [utilityTypes, setUtilityTypes] = useState<UtilityType[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -143,13 +154,26 @@ export const UtilityUsage: React.FC = () => {
     return total;
   };
 
+  const floorOptions = Array.from(
+    new Set(
+      contracts
+        .map((c) => getContractFloor(c))
+        .filter((floor): floor is number => typeof floor === 'number')
+    )
+  ).sort((a, b) => a - b);
+
+  const displayedContracts = contracts.filter((c) => {
+    if (selectedFloor === 'all') return true;
+    return getContractFloor(c) === Number(selectedFloor);
+  });
+
   const handleSave = async () => {
     // Build recordDate without timezone issues
     const mm = String(selectedMonth + 1).padStart(2, '0');
     const recordDate = `${selectedYear}-${mm}-01`;
     const promises: Promise<any>[] = [];
 
-    contracts.forEach((c) => {
+    displayedContracts.forEach((c) => {
       const row = rowData[c.id];
       if (!row) return;
       utilityTypes.forEach((ut) => {
@@ -192,7 +216,7 @@ export const UtilityUsage: React.FC = () => {
   const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Summary stats
-  const filledCount = contracts.filter((c) => {
+  const filledCount = displayedContracts.filter((c) => {
     const row = rowData[c.id];
     return row && utilityTypes.some((ut) => parseFloat(row[ut.id]?.value || '0') > 0);
   }).length;
@@ -226,6 +250,15 @@ export const UtilityUsage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">ปี (ค.ศ.)</label>
             <Select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
               {buddhistYears.map((y) => (<option key={y} value={y}>{y + 543} ({y})</option>))}
+            </Select>
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">ชั้น</label>
+            <Select value={selectedFloor} onChange={(e) => setSelectedFloor(e.target.value)}>
+              <option value="all">ทุกชั้น</option>
+              {floorOptions.map((floor) => (
+                <option key={floor} value={String(floor)}>ชั้น {floor}</option>
+              ))}
             </Select>
           </div>
           <Button onClick={handleSave} className="flex items-center gap-2 whitespace-nowrap">
@@ -263,13 +296,13 @@ export const UtilityUsage: React.FC = () => {
             บันทึกเดือน {THAI_MONTHS[selectedMonth]} {selectedYear + 543}
           </h2>
           <span className="text-sm text-gray-500">
-            {filledCount} / {contracts.length} ห้องที่บันทึกแล้ว
+            {filledCount} / {displayedContracts.length} ห้องที่บันทึกแล้ว
           </span>
         </div>
 
         {isLoading ? (
           <div className="py-16 text-center text-gray-400">กำลังโหลด...</div>
-        ) : contracts.length === 0 ? (
+        ) : displayedContracts.length === 0 ? (
           <div className="py-16 text-center text-gray-400">ไม่พบสัญญาที่ใช้งาน</div>
         ) : (
           <div className="overflow-x-auto">
@@ -301,7 +334,7 @@ export const UtilityUsage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {contracts.map((c) => {
+                {displayedContracts.map((c) => {
                   const hasData = utilityTypes.some((ut) => parseFloat(rowData[c.id]?.[ut.id]?.value || '0') > 0);
                   const roomTotal = getRoomTotal(c.id, c.monthlyRentRate);
 
@@ -359,26 +392,22 @@ export const UtilityUsage: React.FC = () => {
                       })}
                       {/* รวม */}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        {hasData ? (
-                          <span className="font-bold text-indigo-700">{fmt(roomTotal)}</span>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
+                        <span className="font-bold text-indigo-700">{fmt(roomTotal)}</span>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
               {/* Footer summary */}
-              {contracts.length > 0 && (
+              {displayedContracts.length > 0 && (
                 <tfoot className="border-t-2 border-gray-200 bg-gray-50">
                   <tr>
                     <td colSpan={2} className="px-4 py-3 font-semibold text-gray-600">รวมทั้งหมด</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700 whitespace-nowrap">
-                      {fmt(contracts.reduce((s, c) => s + c.monthlyRentRate, 0))}
+                      {fmt(displayedContracts.reduce((s, c) => s + c.monthlyRentRate, 0))}
                     </td>
                     {utilityTypes.map((ut) => {
-                      const totalCost = contracts.reduce((s, c) => s + getCellCost(c.id, ut), 0);
+                      const totalCost = displayedContracts.reduce((s, c) => s + getCellCost(c.id, ut), 0);
                       const colors = getUtilityColor(ut.uType);
                       return (
                         <td key={ut.id} className="px-3 py-3 text-center">
@@ -389,7 +418,7 @@ export const UtilityUsage: React.FC = () => {
                       );
                     })}
                     <td className="px-4 py-3 text-right font-bold text-indigo-700 whitespace-nowrap">
-                      {fmt(contracts.reduce((s, c) => s + getRoomTotal(c.id, c.monthlyRentRate), 0))}
+                      {fmt(displayedContracts.reduce((s, c) => s + getRoomTotal(c.id, c.monthlyRentRate), 0))}
                     </td>
                   </tr>
                 </tfoot>
