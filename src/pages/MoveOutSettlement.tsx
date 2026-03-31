@@ -37,6 +37,60 @@ interface ActiveContract {
   room?: { roomNumber: number };
 }
 
+interface InvoiceSummary {
+  id: number;
+  monthlyContractId: number | string;
+  grandTotal?: number | string;
+  totalAmount?: number | string;
+  total?: number | string;
+  paymentStatus: string;
+  outstandingBalance?: number | string;
+  remainingBalance?: number | string;
+  balanceDue?: number | string;
+  amountDue?: number | string;
+  payments?: { amountPaid?: number | string; paidAmount?: number | string; amount?: number | string }[];
+}
+
+interface InvoiceDetail {
+  id: number;
+  grandTotal?: number | string;
+  totalAmount?: number | string;
+  total?: number | string;
+  outstandingBalance?: number | string;
+  remainingBalance?: number | string;
+  balanceDue?: number | string;
+  amountDue?: number | string;
+  payments?: { amountPaid?: number | string; paidAmount?: number | string; amount?: number | string }[];
+}
+
+const toNumber = (value: unknown): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const normalized = value.replace(/,/g, '').trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const calculatePaidTotal = (payments: Array<{ amountPaid?: number | string; paidAmount?: number | string; amount?: number | string }> = []): number => {
+  return payments.reduce((sum, payment) => {
+    const paid = toNumber(payment.amountPaid ?? payment.paidAmount ?? payment.amount ?? 0);
+    return sum + paid;
+  }, 0);
+};
+
+const calculateInvoiceOutstanding = (invoice: InvoiceSummary | InvoiceDetail): number => {
+  const directOutstanding = toNumber(
+    invoice.outstandingBalance ?? invoice.remainingBalance ?? invoice.balanceDue ?? invoice.amountDue ?? 0
+  );
+  if (directOutstanding > 0) return directOutstanding;
+
+  const total = toNumber(invoice.grandTotal ?? invoice.totalAmount ?? invoice.total ?? 0);
+  const paid = calculatePaidTotal(invoice.payments || []);
+  return Math.max(total - paid, 0);
+};
+
 export const MoveOutSettlement: React.FC = () => {
   const { addToast } = useToast();
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -49,6 +103,7 @@ export const MoveOutSettlement: React.FC = () => {
   const [contractSearch, setContractSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingDeposit, setLoadingDeposit] = useState(false);
+  const [loadingOutstanding, setLoadingOutstanding] = useState(false);
   const [form, setForm] = useState({
     contractId: '',
     moveOutDate: new Date().toISOString().split('T')[0],
@@ -90,26 +145,79 @@ export const MoveOutSettlement: React.FC = () => {
   const handleContractChange = async (contractId: string, label: string) => {
     setShowDropdown(false);
     setContractSearch(label);
-    setForm((f) => ({ ...f, contractId, totalDeposit: '' }));
+    setForm((f) => ({ ...f, contractId, totalDeposit: '', outstandingBalance: '0' }));
     if (!contractId) return;
 
-    // ใช้ข้อมูลจาก list ที่โหลดมาแล้วก่อน
     const cached = contracts.find((c) => c.id === Number(contractId));
     if (cached?.depositAmount !== undefined && Number(cached.depositAmount) > 0) {
-      setForm((f) => ({ ...f, contractId, totalDeposit: String(Number(cached.depositAmount)) }));
-      return;
+      setForm((f) => ({ ...f, totalDeposit: String(Number(cached.depositAmount)) }));
     }
 
-    // fallback: call API เดี่ยว
     try {
-      setLoadingDeposit(true);
-      const res = await api.get(`/monthly-contracts/${contractId}`);
-      const deposit = Number(res.data?.depositAmount) || 0;
-      setForm((f) => ({ ...f, contractId, totalDeposit: String(deposit) }));
+      setLoadingDeposit(!(cached?.depositAmount !== undefined && Number(cached.depositAmount) > 0));
+      setLoadingOutstanding(true);
+
+      const [invoiceListRes, contractRes] = await Promise.all([
+        api.get('/invoices'),
+        api.get(`/monthly-contracts/${contractId}`),
+      ]);
+
+      const invoiceList = Array.isArray(invoiceListRes.data)
+        ? (invoiceListRes.data as InvoiceSummary[])
+        : [];
+
+      const fromList = invoiceList.filter(
+        (inv) => Number(inv.monthlyContractId) === Number(contractId)
+      );
+      const fromContract = Array.isArray(contractRes.data?.invoices)
+        ? (contractRes.data.invoices as InvoiceSummary[])
+        : [];
+
+      const mergedMap = new Map<number, InvoiceSummary>();
+      [...fromList, ...fromContract].forEach((inv) => {
+        mergedMap.set(Number(inv.id), inv);
+      });
+      const contractInvoices = Array.from(mergedMap.values());
+
+      const invoiceDetails = contractInvoices.length > 0
+        ? await Promise.all(
+            contractInvoices.map(async (inv) => {
+              try {
+                const res = await api.get(`/invoices/${inv.id}`);
+                return res.data as InvoiceDetail;
+              } catch {
+                return inv as InvoiceDetail;
+              }
+            })
+          )
+        : [];
+
+      const deposit = Number(contractRes.data?.depositAmount) || 0;
+      const fromContractDirect = toNumber(
+        contractRes.data?.outstandingBalance ??
+        contractRes.data?.remainingBalance ??
+        contractRes.data?.balanceDue ??
+        contractRes.data?.totalOutstanding ??
+        contractRes.data?.unpaidAmount
+      );
+
+      const calculatedOutstanding = (invoiceDetails.length > 0 ? invoiceDetails : contractInvoices).reduce(
+        (sum, invoice) => sum + calculateInvoiceOutstanding(invoice),
+        0
+      );
+      const outstanding = Math.max(fromContractDirect, calculatedOutstanding);
+
+      setForm((f) => ({
+        ...f,
+        contractId,
+        totalDeposit: String(deposit),
+        outstandingBalance: String(outstanding),
+      }));
     } catch {
-      addToast('ไม่สามารถดึงข้อมูลมัดจำได้', 'error');
+      addToast('ไม่สามารถดึงข้อมูลมัดจำ/ยอดค้างชำระได้', 'error');
     } finally {
       setLoadingDeposit(false);
+      setLoadingOutstanding(false);
     }
   };
 
@@ -252,7 +360,7 @@ export const MoveOutSettlement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500 italic">{formatDate(s.moveOutDate)}</td>
                       <td className="px-6 py-4 text-right font-bold text-slate-700">฿{fmt(s.totalDeposit)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-red-600">฿{fmt((s.damageDeduction || 0) + (s.cleaningFee || 0) + (s.outstandingBalance || 0))}</td>
+                      <td className="px-6 py-4 text-right font-bold text-red-600">฿{fmt((+s.damageDeduction || 0) + (+s.cleaningFee || 0) + (+s.outstandingBalance || 0))} </td>
                       <td className="px-6 py-4 text-right font-bold text-emerald-600">฿{fmt(s.netRefund)}</td>
                       <td className="px-6 py-4 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s.refundStatus === 'REFUNDED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -336,8 +444,8 @@ export const MoveOutSettlement: React.FC = () => {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">ยอดค้างชำระ</label>
-              <Input type="number" value={form.outstandingBalance} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, outstandingBalance: e.target.value })} />
+              <label className="text-sm font-medium">ยอดค้างชำระ {loadingOutstanding && <span className="text-xs text-gray-400 font-normal">(กำลังโหลด...)</span>}</label>
+              <Input type="number" value={form.outstandingBalance} placeholder={loadingOutstanding ? 'กำลังดึงข้อมูล...' : '0'} disabled={loadingOutstanding} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, outstandingBalance: e.target.value })} />
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <div className="flex justify-between items-center">
