@@ -1,6 +1,7 @@
 import React from 'react';
-import { CreditCard, Printer, Trash2 } from 'lucide-react';
+import { CreditCard, Printer, Trash2, Edit2, Check, X } from 'lucide-react';
 import { Button } from './ui/button';
+import { ThaiDateField } from './ui/ThaiDateField';
 
 interface InvoiceContractInfo {
   id: number;
@@ -35,6 +36,11 @@ interface BillingInvoiceTableProps {
   onPay: (invoiceId: number) => void;
   onPrint: (invoice: InvoiceItem) => void;
   onDelete: (invoiceId: number) => void;
+  editingInvoiceDateId?: number | null;
+  editingInvoiceDateValue?: string;
+  onEditInvoiceDate?: (invoice: InvoiceItem) => void;
+  onSaveInvoiceDate?: (id: number, date: string) => void;
+  onCancelEditInvoiceDate?: () => void;
 }
 
 export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
@@ -49,6 +55,11 @@ export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
   onPay,
   onPrint,
   onDelete,
+  editingInvoiceDateId,
+  editingInvoiceDateValue,
+  onEditInvoiceDate,
+  onSaveInvoiceDate,
+  onCancelEditInvoiceDate,
 }) => {
   return (
     <section className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
@@ -85,7 +96,45 @@ export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
                       <p className="font-bold text-slate-800">{contract?.customer?.fullName ?? '-'}</p>
                       <p className="text-[11px] text-slate-400 font-medium">{contract?.customer?.phone ?? '-'}</p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 italic">{formatDate(inv.invoiceDate)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500 italic">
+                      {editingInvoiceDateId === inv.id ? (
+                        <div className="flex items-center gap-2">
+                          <ThaiDateField
+                            value={editingInvoiceDateValue ?? inv.invoiceDate}
+                            onChange={(value) =>
+                              onEditInvoiceDate?.({ ...inv, invoiceDate: value })
+                            }
+                            className="w-44 text-xs py-1"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => onSaveInvoiceDate?.(inv.id, editingInvoiceDateValue ?? inv.invoiceDate)}
+                            className="p-1 hover:bg-green-100 rounded-lg text-green-600"
+                            title="บันทึก"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={() => onCancelEditInvoiceDate?.()}
+                            className="p-1 hover:bg-red-100 rounded-lg text-red-600"
+                            title="ยกเลิก"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span>{formatDate(inv.invoiceDate)}</span>
+                          <button
+                            onClick={() => onEditInvoiceDate?.(inv)}
+                            className="p-1 hover:bg-blue-100 rounded-lg text-blue-600"
+                            title="แก้ไขวันที่ออกบิล"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-500 italic">{formatDate(inv.dueDate)}</td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">฿{fmt(Number(inv.grandTotal))}</td>
                     <td className="px-6 py-4 text-center">{statusBadge(inv.paymentStatus)}</td>
@@ -95,7 +144,7 @@ export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
                           <button
                             onClick={() => onPay(inv.id)}
                             className="p-2 hover:bg-green-100 rounded-lg text-green-600"
-                            title="ชำระเงิน"
+                            title="บันทึกการชำระเงิน"
                           >
                             <CreditCard size={16} />
                           </button>
@@ -103,7 +152,7 @@ export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
                         <button
                           onClick={() => onPrint(inv)}
                           className="p-2 hover:bg-blue-100 rounded-lg text-blue-600"
-                          title="พิมพ์"
+                          title="พิมพ์ใบแจ้งหนี้"
                         >
                           <Printer size={16} />
                         </button>
@@ -112,6 +161,7 @@ export const BillingInvoiceTable: React.FC<BillingInvoiceTableProps> = ({
                           variant="ghost"
                           onClick={() => onDelete(inv.id)}
                           className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          title="ลบใบแจ้งหนี้"
                         >
                           <Trash2 size={16} /> ลบ
                         </Button>

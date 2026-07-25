@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Receipt, Plus, Printer as PrintAll } from 'lucide-react';
 import { Button } from '../component/ui/button';
 import { Select } from '../component/ui/select';
+import { ThaiDateField } from '../component/ui/ThaiDateField';
 import { ConfirmDialog } from '../component/dialog';
 import { BillingInvoiceTable } from '../component/BillingInvoiceTable';
 import api from '../lib/axios';
@@ -29,6 +30,10 @@ const Billing: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedFloor, setSelectedFloor] = useState<string>('all');
+  const [selectedInvoiceDate, setSelectedInvoiceDate] = useState(() => {
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    return `${now.getFullYear()}-${mm}-01`;
+  });
 
   const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -36,8 +41,15 @@ const Billing: React.FC = () => {
   const [usages, setUsages] = useState<UsageRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
+  const [editingInvoiceDate, setEditingInvoiceDate] = useState<{ id: number; value: string } | null>(null);
 
   useEffect(() => { fetchAll(); }, []);
+
+  // Update default invoice date when month/year changes
+  useEffect(() => {
+    const mm = String(selectedMonth + 1).padStart(2, '0');
+    setSelectedInvoiceDate(`${selectedYear}-${mm}-01`);
+  }, [selectedMonth, selectedYear]);
 
   const fetchAll = async () => {
     try {
@@ -193,8 +205,6 @@ const Billing: React.FC = () => {
         return;
       }
 
-      const mm = String(selectedMonth + 1).padStart(2, '0');
-      const invoiceDate = `${selectedYear}-${mm}-01`;
       const dueMm = String(selectedMonth + 2 > 12 ? 1 : selectedMonth + 2).padStart(2, '0');
       const dueYear = selectedMonth + 2 > 12 ? selectedYear + 1 : selectedYear;
       const dueDate = `${dueYear}-${dueMm}-05`;
@@ -203,7 +213,7 @@ const Billing: React.FC = () => {
         toCreate.map((c) =>
           api.post('/invoices', {
             monthlyContractId: c.id,
-            invoiceDate,
+            invoiceDate: selectedInvoiceDate,
             dueDate,
             grandTotal: calcGrandTotal(c),
           })
@@ -232,6 +242,26 @@ const Billing: React.FC = () => {
 
   const handlePrintOne = (inv: ApiInvoice) => printInvoice(buildPrintInvoice(inv));
   const handlePrintAll = () => printAllInvoices(filteredMonthInvoices.map(buildPrintInvoice));
+
+  const handleEditInvoiceDate = (inv: ApiInvoice) => {
+    setEditingInvoiceDate({ id: inv.id, value: inv.invoiceDate });
+  };
+
+  const handleSaveInvoiceDate = async (id: number, newDate: string) => {
+    if (!newDate) return;
+    try {
+      await api.put(`/invoices/${id}`, { invoiceDate: newDate });
+      addToast('อัปเดตวันที่ออกบิลสำเร็จ', 'success');
+      setEditingInvoiceDate(null);
+      fetchAll();
+    } catch {
+      addToast('ไม่สามารถอัปเดตวันที่ออกบิลได้', 'error');
+    }
+  };
+
+  const handleCancelEditInvoiceDate = () => {
+    setEditingInvoiceDate(null);
+  };
 
   const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2 });
   const formatDate = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -287,6 +317,13 @@ const Billing: React.FC = () => {
             {buddhistYears.map((y) => (<option key={y} value={y}>{y + 543} ({y})</option>))}
           </Select>
         </div>
+        <div className="min-w-[180px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">วันที่ออกบิล</label>
+          <ThaiDateField
+            value={selectedInvoiceDate}
+            onChange={(value) => setSelectedInvoiceDate(value)}
+          />
+        </div>
         <div className="min-w-[160px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">ชั้น</label>
           <Select value={selectedFloor} onChange={(e) => setSelectedFloor(e.target.value)}>
@@ -319,6 +356,11 @@ const Billing: React.FC = () => {
         onPay={(invoiceId) => navigate(`/billing/payment/${invoiceId}`)}
         onPrint={handlePrintOne}
         onDelete={(invoiceId) => setConfirmDelete({ open: true, id: invoiceId })}
+        editingInvoiceDateId={editingInvoiceDate?.id ?? null}
+        editingInvoiceDateValue={editingInvoiceDate?.value ?? ''}
+        onEditInvoiceDate={handleEditInvoiceDate}
+        onSaveInvoiceDate={handleSaveInvoiceDate}
+        onCancelEditInvoiceDate={handleCancelEditInvoiceDate}
       />
 
       <ConfirmDialog

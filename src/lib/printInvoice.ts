@@ -78,7 +78,7 @@ function buildInvoicePage(inv: Invoice): string {
   </div>
 
   <div class="customer-row">
-    นาย,นาง,นางสาว&nbsp;<span class="uline">&nbsp;${inv.customerName}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+    <span class="uline">&nbsp;${inv.customerName}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
   </div>
 
   <div class="section-header">รายการประจำเดือน ${THAI_MONTHS[inv.month]} ${inv.year}</div>
