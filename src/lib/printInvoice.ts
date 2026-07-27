@@ -45,6 +45,7 @@ function toThaiWords(n: number): string {
 
 function buildInvoicePage(inv: Invoice): string {
   const fmtNum = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtInt = (n: number) => Number(n).toLocaleString('th-TH');
 
   const intPart = Math.floor(inv.total);
   const decPart = Math.round((inv.total - intPart) * 100);
@@ -56,14 +57,11 @@ function buildInvoicePage(inv: Invoice): string {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  let otherRows = '';
-  if (inv.otherItems && inv.otherItems.length > 0) {
-    otherRows = inv.otherItems
-      .map((item) => `<div class="item-row"><span class="item-label">${item.name}</span><span class="item-line"></span><span class="item-amount">${fmtNum(item.amount)}</span><span class="item-unit">บาท</span></div>`)
-      .join('');
-  } else {
-    otherRows = `<div class="item-row"><span class="item-label"></span><span class="item-line"></span><span class="item-amount"></span><span class="item-unit">บาท</span></div>`;
-  }
+  const otherRows = inv.otherItems && inv.otherItems.length > 0
+    ? inv.otherItems
+      .map((item) => `<div class="item-row"><span class="item-label">${item.name}</span><span class="item-amount">${fmtNum(item.amount)}</span><span class="item-unit">บาท</span></div>`)
+      .join('')
+    : '';
 
   return `
 <div class="page">
@@ -85,29 +83,20 @@ function buildInvoicePage(inv: Invoice): string {
 
   <div class="item-row">
     <span class="item-label">ค่าเช่าห้องรวมเฟอร์นิเจอร์</span>
-    <span class="item-line"></span>
     <span class="item-amount">${fmtNum(inv.rent)}</span>
     <span class="item-unit">บาท</span>
   </div>
   <div class="item-row">
-    <span class="item-label">ค่าไฟฟ้า&nbsp;(${inv.electricityUnits}&nbsp;หน่วย)</span>
-    <span class="item-line"></span>
+    <span class="item-label">ค่าไฟฟ้า&nbsp;(${fmtInt(inv.electricityUnits)}&nbsp;หน่วย)</span>
     <span class="item-amount">${fmtNum(inv.electricityAmount)}</span>
     <span class="item-unit">บาท</span>
   </div>
   <div class="item-row">
-    <span class="item-label">ค่าน้ำ&nbsp;(${inv.waterUnits}&nbsp;หน่วย)</span>
-    <span class="item-line"></span>
+    <span class="item-label">ค่าน้ำ&nbsp;(${fmtInt(inv.waterUnits)}&nbsp;หน่วย)</span>
     <span class="item-amount">${fmtNum(inv.waterAmount)}</span>
     <span class="item-unit">บาท</span>
   </div>
   ${otherRows}
-  <div class="item-row">
-    <span class="item-label"></span>
-    <span class="item-line"></span>
-    <span class="item-amount"></span>
-    <span class="item-unit">บาท</span>
-  </div>
 
   <div class="total-section">
     <span class="total-label">รวม</span>
@@ -127,9 +116,9 @@ function buildInvoicePage(inv: Invoice): string {
   </div>
 
   <div class="notes">
-    <strong>หมายเหตุ</strong>&nbsp;1.กรุณาโอนเงินเข้าบัญชี &ldquo;นายณรงค์ศักย์ เลาหวีรานนท์&rdquo; ธนาคารกรุงเทพ เลขที่บัญชี 420-006181-2<br/>
-    &emsp;&emsp;&emsp;&emsp;&emsp;2.แจ้งหลักฐานการโอนเงินผ่าน Line:@ 0630827638<br/>
-    &emsp;&emsp;&emsp;&emsp;&emsp;3.ค่าเช่าชำระไม่เกินวันที่ 5 ของเดือน เกินกำหนดคะปรับวันละ 100 บาท
+    <strong>หมายเหตุ</strong>&nbsp;1.กรุณาโอนเงินเข้าบัญชี &ldquo;นายณรงค์ชัย  เลาหวิริยานนท์&rdquo; ธนาคารกรุงเทพ เลขที่บัญชี 420-006181-2<br/>
+    &emsp;&emsp;&emsp;&emsp;&emsp;2.แจ้งหลักฐานการโอนเงินผ่าน Line:@0630827638<br/>
+    &emsp;&emsp;&emsp;&emsp;&emsp;3.ค่าเช่าชำระไม่เกินวันที่ห้าของเดือนเกินกำหนดปรับวันละ 100 บาท
   </div>
 </div>`;
 }
@@ -146,10 +135,9 @@ const printStyles = `
   .customer-row{font-size:14px;margin-bottom:18px}
   .customer-row .uline{min-width:320px}
   .section-header{text-align:center;font-size:15px;font-weight:bold;margin-bottom:14px}
-  .item-row{display:flex;align-items:flex-end;margin-bottom:12px;font-size:14px}
-  .item-label{min-width:230px;white-space:nowrap}
-  .item-line{flex:1;border-bottom:1px solid #000;margin:0 6px 2px}
-  .item-amount{min-width:90px;text-align:right;font-size:14px}
+  .item-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;font-size:14px}
+  .item-label{white-space:nowrap;flex:1}
+  .item-amount{min-width:90px;text-align:right;font-size:14px;margin-left:16px}
   .item-unit{margin-left:4px;white-space:nowrap}
   .total-section{display:flex;justify-content:flex-end;align-items:flex-end;margin:18px 0 10px;font-size:14px;font-weight:bold}
   .total-label{margin-right:8px}
@@ -161,7 +149,7 @@ const printStyles = `
   .sig-block{text-align:center}
   .sig-line{display:inline-block;border-bottom:1px solid #000;min-width:180px}
   .notes{margin-top:24px;font-size:12.5px;line-height:1.9;border-top:1px solid #888;padding-top:10px}
-  @media print{body{margin:0}.page{margin:0 auto;border:2px solid #000;page-break-after:always;width:100%}.page:last-child{page-break-after:avoid}}
+  @media print{@page{margin:0}body{margin:12mm}.page{margin:0 auto;border:2px solid #000;page-break-after:always;width:100%}.page:last-child{page-break-after:avoid}}
 `;
 
 export function printInvoice(inv: Invoice): void {

@@ -165,7 +165,7 @@ const Billing: React.FC = () => {
         waterUnits += u.utilityUnit;
         waterAmount += amount;
       } else {
-        otherItems.push({ name: `${ut.uType} (${u.utilityUnit} หน่วย)`, amount });
+        otherItems.push({ name: `${ut.uType} (${Number(u.utilityUnit).toLocaleString('th-TH')} หน่วย)`, amount });
       }
     });
 
