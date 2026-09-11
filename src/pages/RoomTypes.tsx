@@ -26,8 +26,8 @@ export const RoomTypes: React.FC = () => {
   const [selectedType, setSelectedType] = useState<RoomType | null>(null);
   const [formData, setFormData] = useState({
     typeName: '',
-    baseDailyRate: '',
-    baseMonthlyRate: '',
+    baseDailyRate: '0',
+    baseMonthlyRate: '0',
     description: '',
   });
   const [formErrors, setFormErrors] = useState<{
@@ -70,8 +70,8 @@ export const RoomTypes: React.FC = () => {
     setFormErrors({});
     setFormData({
       typeName: '',
-      baseDailyRate: '',
-      baseMonthlyRate: '',
+      baseDailyRate: '0',
+      baseMonthlyRate: '0',
       description: '',
     });
     setIsDialogOpen(true);

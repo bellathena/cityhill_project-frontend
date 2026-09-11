@@ -33,6 +33,8 @@ interface UsageRecord {
   recordDate: string;
   utilityUnit: number;
   uTypeId: number;
+  month: number;
+  year: number;
 }
 
 interface CellData {
@@ -44,11 +46,8 @@ interface RowData {
   [uTypeId: string]: CellData;
 }
 
-// Parse "2026-03-01" or "2026-03-01T..." → { year, month (0-based) }
-const parseYearMonth = (dateStr: string) => {
-  const parts = dateStr.substring(0, 10).split('-');
-  return { year: Number(parts[0]), month: Number(parts[1]) - 1 };
-};
+// Match usages by the integer month/year fields stored on the record,
+// not by parsing the recordDate string (which can shift across timezones).
 
 const getUtilityIcon = (uType: string) => {
   const lower = uType.toLowerCase();
@@ -118,11 +117,12 @@ export const UtilityUsage: React.FC = () => {
     contracts.forEach((c) => {
       const row: RowData = {};
       utilityTypes.forEach((ut) => {
-        const existing = usages.find((u) => {
-          const ym = parseYearMonth(u.recordDate);
-          return u.roomId === c.roomId && u.uTypeId === ut.id &&
-            ym.year === selectedYear && ym.month === selectedMonth;
-        });
+        const existing = usages.find((u) =>
+          u.roomId === c.roomId &&
+          u.uTypeId === ut.id &&
+          u.month === selectedMonth + 1 &&
+          u.year === selectedYear
+        );
         row[ut.id] = {
           value: existing ? String(existing.utilityUnit) : '',
           existingId: existing?.id,

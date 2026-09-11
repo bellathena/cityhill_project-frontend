@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { printInvoice, printAllInvoices, type Invoice as PrintInvoice, THAI_MONTHS } from '../lib/printInvoice';
 
 interface UtilityType { id: number; uType: string; ratePerUnit: number; }
-interface UsageRecord { id: number; roomId: number; recordDate: string; utilityUnit: number; uTypeId: number; }
+interface UsageRecord { id: number; roomId: number; recordDate: string; utilityUnit: number; uTypeId: number; month: number; year: number; }
 interface Contract {
   id: number; roomId: number; customerId: number; monthlyRentRate: number; contractStatus: string;
   customer?: { fullName: string; phone: string };
@@ -111,19 +111,16 @@ const Billing: React.FC = () => {
   const paidCount = filteredMonthInvoices.filter((i) => i.paymentStatus === 'PAID').length;
   const totalAmount = filteredMonthInvoices.reduce((s, i) => s + Number(i.grandTotal), 0);
 
-  // Parse year/month directly from date string to avoid UTC timezone shift
-  const parseYM = (dateStr: string) => {
-    const parts = dateStr.split('-');
-    return { y: Number(parts[0]), m: Number(parts[1]) - 1 }; // m is 0-indexed
-  };
-
-  // Calculate grand total for a contract from rent + utility usages
+  // Calculate grand total for a contract from rent + utility usages.
+  // Match usages by the integer month/year fields, not by parsing recordDate
+  // (which can shift across timezones).
   const calcGrandTotal = (contract: Contract): number => {
     let total = contract.monthlyRentRate;
-    const roomUsages = usages.filter((u) => {
-      const { y, m } = parseYM(u.recordDate);
-      return u.roomId === contract.roomId && y === selectedYear && m === selectedMonth;
-    });
+    const roomUsages = usages.filter((u) =>
+      u.roomId === contract.roomId &&
+      u.month === selectedMonth + 1 &&
+      u.year === selectedYear
+    );
     roomUsages.forEach((u) => {
       const ut = utilities.find((t) => t.id === u.uTypeId);
       if (ut) total += u.utilityUnit * Number(ut.ratePerUnit);
@@ -139,14 +136,12 @@ const Billing: React.FC = () => {
     const rent = contract?.monthlyRentRate ?? 0;
     const invDate = new Date(inv.invoiceDate);
 
-    // Get utility breakdown (parse string directly to avoid UTC timezone shift)
+    // Get utility breakdown (match by integer month/year fields)
     const invYear = invDate.getFullYear();
     const invMonth = invDate.getMonth();
-    const roomUsages = usages.filter((u) => {
-      const parts = u.recordDate.split('-');
-      const uYear = Number(parts[0]), uMonth = Number(parts[1]) - 1;
-      return u.roomId === (contract?.roomId ?? -1) && uYear === invYear && uMonth === invMonth;
-    });
+    const roomUsages = usages.filter((u) =>
+      u.roomId === (contract?.roomId ?? -1) && u.month === invMonth + 1 && u.year === invYear
+    );
 
     // Find electricity and water specifically, rest as otherItems
     let electricityUnits = 0, electricityAmount = 0;
